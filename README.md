@@ -213,7 +213,6 @@ html_path = generate_map("MG Road, Bangalore", "Indiranagar, Bangalore", 500, "h
 
 ## 📚 Notebooks
 
-- We will soon release agentic workflows using the capabilities built here.
 - The Coexist tutorial can be found in `coexist_tutorial.ipynb`.
 
 ---
