@@ -28,7 +28,7 @@ import chromadb
 from utils.utils import *
 from utils.answer_generation import *
 from utils.reddit_utils import *
-from utils.prcoess_content import process_content
+from utils.process_content import process_content
 
 chromadb.api.client.SharedSystemClient.clear_system_cache()
 
