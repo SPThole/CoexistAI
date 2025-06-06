@@ -124,11 +124,11 @@ def load_model(model_name, _embed_mode='infinity_emb'):
         infinity_api_url = "http://0.0.0.0:7997"
         try:
             hf_embeddings = InfinityEmbeddings(
-                model="model", infinity_api_url=infinity_api_url
+                model=model_name, infinity_api_url=infinity_api_url
             )
         except Exception as e:
             logger.error(f"Failed to load InfinityEmbeddings: {e}")
-            raise RuntimeError(f"Failed to load InfinityEmbeddings: {e}")
+            raise RuntimeError(f"Failed to load InfinityEmbeddings: {e}, please first start the server using infinity_emb v2 --model-id (https://github.com/michaelfeil/infinity)")
     elif _embed_mode == 'huggingface':
         try:
             hf_embeddings = HuggingFaceEmbeddings(
@@ -226,6 +226,11 @@ def get_generative_model(model_name='gemini-1.5-flash',
             base_url=base_url,
             model=model_name,
             api_key='dummy',
+            **kwargs
+        )
+    elif type == 'openai':
+        llm = ChatOpenAI(
+            model=model_name,
             **kwargs
         )
     if _tools:

@@ -30,3 +30,4 @@ pymupdf
 pymupdf4llm
 rank_bm25
 langchain_experimental
+einops

@@ -77,7 +77,29 @@ docker run --rm \
 uvicorn app:app --reload
 ```
 
-### 2. Web Search Endpoint
+If using local infinity embedding server (https://github.com/michaelfeil/infinity):
+
+```bash
+infinity_emb v2 --model-id hf_model_name
+```
+
+### 2. Get Your API Key
+
+[Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider. Once you have the key, update the `app.py` file or your environment variables as follows:
+
+```python
+import os
+os.environ['GOOGLE_API_KEY'] = "YOUR_API_KEY"
+```
+
+Alternatively, you can set the API key in your shell before starting the server:
+
+```bash
+export YOUR_LLM_API_KEY=your-api-key-here
+```
+> **Note:** For optimal quality and speed, use Google models with `embedding-001` embeddings and Gemini Flash models.
+
+### 3. Web Search Endpoint
 
 For local files search or summary
 ```http
@@ -112,7 +134,7 @@ Content-Type: application/json
 }
 ```
 
-### 3. Reddit Summarizer Endpoint
+### 4. Reddit Summarizer Endpoint
 
 ```http
 POST /reddit-search
@@ -127,7 +149,7 @@ Content-Type: application/json
 }
 ```
 
-### 4. YouTube Transcript Summarizer Endpoint
+### 5. YouTube Transcript Summarizer Endpoint
 
 ```http
 POST /youtube-search
