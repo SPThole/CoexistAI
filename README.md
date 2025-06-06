@@ -2,11 +2,9 @@
 
 CoexistAI is a modular, developer-friendly research assistant framework built on FastAPI and LangChain. It enables you to build, search, summarize, and automate research workflows using LLMs, web search, Reddit, YouTube, and mapping tools—all with simple API calls or Python functions.
 
-<video width="480" controls>
-  <source src="artifacts/video_logo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
+<p align="center">
+  <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
+</p>
 
 ## 🚀 Features
 
