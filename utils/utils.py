@@ -102,13 +102,14 @@ def fix_json(json_str):
 
 
 # @st.cache_data
-def load_model(model_name, _embed_mode='infinity_emb'):
+def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/bge-reranker-base"):
     """
     Loads the appropriate embeddings and cross-encoder model based on the embedding mode.
     TODO: Validate model and handle errors for unsupported modes.
     Args:
         model_name (str): The name of the Hugging Face or Google embedding model.
         _embed_mode (str, optional): The embedding mode ('infinity_emb', 'huggingface', 'gemini'). Defaults to 'infinity_emb'.
+        cross_encoder_name (str, optional): The name of the cross-encoder model to use. Defaults to "BAAI/bge-reranker-base".
 
     Returns:
         tuple: The selected embedding model and cross-encoder.
@@ -140,13 +141,13 @@ def load_model(model_name, _embed_mode='infinity_emb'):
             raise RuntimeError(f"Failed to load HuggingFaceEmbeddings: {e}")
     elif _embed_mode == 'gemini':
         try:
-            hf_embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", task_type="retrieval_query")
+            hf_embeddings = GoogleGenerativeAIEmbeddings(model=model_name, task_type="retrieval_query")
         except Exception as e:
             logger.error(f"Failed to load GoogleGenerativeAIEmbeddings: {e}")
             raise RuntimeError(f"Failed to load GoogleGenerativeAIEmbeddings: {e}")
 
     try:
-        cross_encoder = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+        cross_encoder = HuggingFaceCrossEncoder(model_name=cross_encoder_name)
     except Exception as e:
         logger.error(f"Failed to load HuggingFaceCrossEncoder: {e}")
         raise RuntimeError(f"Failed to load HuggingFaceCrossEncoder: {e}")
@@ -218,7 +219,7 @@ def get_generative_model(model_name='gemini-1.5-flash',
         kwargs = {}
     if type == 'google':
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=model_name,
             **kwargs,
         )
     elif type == 'local':
