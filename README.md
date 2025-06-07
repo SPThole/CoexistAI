@@ -140,7 +140,7 @@ Content-Type: application/json
 POST /reddit-search
 Content-Type: application/json
 {
-  "subreddit": "LocalLLaMA",
+  "subreddit": "OpenAI",
   "url_type": "hot",
   "n": 5,
   "k": 3,
