@@ -97,7 +97,7 @@ Alternatively, you can set the API key in your shell before starting the server:
 ```bash
 export YOUR_LLM_API_KEY=your-api-key-here
 ```
-> **Note:** For optimal quality and speed, use Google models with `embedding-001` embeddings and Gemini Flash models.
+> **Note:** For optimal quality and speed, use Google models with `embedding-001` embeddings and Gemini Flash models. They provide free API keys.
 
 ### 3. Web Search Endpoint
 
@@ -222,7 +222,6 @@ html_path = generate_map("MG Road, Bangalore", "Indiranagar, Bangalore", 500, "h
 - **Plug in your own LLMs**: Swap out Google Gemini for OpenAI, Ollama, or any LangChain-supported model.
 - **Custom Tools**: Add your own tools to the agent system for new capabilities (see `utils/` for examples).
 - **Async/Parallel**: All web and document search utilities are asynchronous for high performance.
-- **Notebook Integration**: Use all features interactively in Jupyter or VSCode Notebooks.
 
 ---
 
