@@ -99,6 +99,8 @@ export YOUR_LLM_API_KEY=your-api-key-here
 ```
 > **Note:** For optimal quality and speed, use Google models with `embedding-001` embeddings and Gemini Flash models. They provide free API keys.
 
+Update the place (default: India) in utils/answer_generation.py for personalized results
+
 ### 3. Web Search Endpoint
 
 For local files search or summary

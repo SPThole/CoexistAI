@@ -9,7 +9,7 @@ from utils.utils import get_local_data
 logger = logging.getLogger(__name__)
 
 date, day = get_local_data()
-
+place = 'Bangalore, India'
 
 def query_agent(query, llm, date, day):
     """
@@ -39,13 +39,13 @@ def query_agent(query, llm, date, day):
         Ensure that subqueries include essential keywords and context from the original query to maintain relevance.
         Avoid generating subqueries that are too generic or lack specific terms from the original query.
         When rephrasing, retain the main subject and important details from the original query in each subquery.
-        """ + "Todays date is: {date} and today is {day}, Bangalore India, Use date/location only if the query requires time-sensitive or location-specific information.",
+        """ + "Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information.",
 
         planning_to_answer_query_to_help_finding_subqueries: list[str] = Field(
-            description="Up to 6 planning steps breaking down the task without overemphasizing any keyword, Context: Today's date is {date} {day}, Bangalore, India."
+            description="Up to 6 planning steps breaking down the task without overemphasizing any keyword, Context: Today's date is {date} {day}, {place}."
         )
         subqueries: list[str] = Field(
-            description="Up to 6 rephrased phrases covering all planning steps in independent search phrases , using a maximum of 4 words per subquery, avoiding unnecessary adjectives, Context: Today's date is {date} {day}, Bangalore, India."
+            description="Up to 6 rephrased phrases covering all planning steps in independent search phrases , using a maximum of 4 words per subquery, avoiding unnecessary adjectives, Context: Today's date is {date} {day}, {place}"
         )
         is_summary: bool = Field(
             description="Whether the subqueries are intended to summarize."
@@ -57,7 +57,7 @@ def query_agent(query, llm, date, day):
     logger = logging.getLogger(__name__)
     try:
         response = llm.with_structured_output(SearchSubqueries).invoke(
-            f"Todays date is: {date} and today is {day}, Bangalore India, Use date/location only if the query requires time-sensitive or location-specific information. "
+            f"Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information. "
             f"\nquery: {query}"
         )
         is_summary = response.is_summary
