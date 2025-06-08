@@ -9,7 +9,7 @@ from utils.utils import get_local_data
 logger = logging.getLogger(__name__)
 
 date, day = get_local_data()
-place = 'Bangalore, India'
+
 
 def query_agent(query, llm, date, day):
     """
