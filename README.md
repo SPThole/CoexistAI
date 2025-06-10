@@ -51,7 +51,7 @@ docker pull docker.io/searxng/searxng:latest
 
 - By default, SearxNG will be available at `http://localhost:8080`.
 - You can edit `settings.yml` for advanced configuration (see `searxng/settings.yml` in this repo for a template).
-- if not just copy the folder searxng at the same relative location
+- if not just copy the folder searxng from this repo, at the same relative location in your machine
 
 -- Run the following command: 
 ```bash
