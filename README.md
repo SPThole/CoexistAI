@@ -153,6 +153,7 @@ Content-Type: application/json
 ```
 
 ### 5. YouTube Transcript Summarizer Endpoint
+use latest version of youtube-transcript-api 1.1.0
 
 ```http
 POST /youtube-search
