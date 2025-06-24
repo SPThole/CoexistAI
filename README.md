@@ -37,13 +37,6 @@ CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng
 
 ### 1. Install SearxNG (Docker recommended)
 
-```bash
-git clone https://github.com/searxng/searxng.git
-cd searxng
-docker compose up -d
-```
-
-OR 
 
 ```bash
 docker pull docker.io/searxng/searxng:latest
