@@ -20,6 +20,44 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
 
 ## 🛠️ Installation
 
+### METHOD 1 (Less flexible but faster):
+
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/SPThole/CoexistAI.git coexistai
+   cd coexistai
+   ```
+
+2. **Run the setup script:**
+   - For macOS or Linux with zsh:
+     ```sh
+     zsh quick_setup.sh
+     ```
+   - For Linux with bash:
+     ```sh
+     bash quick_setup.sh
+     ```
+
+   > The script will:
+   > - Pull the SearxNG Docker image
+   > - Create and activate a Python virtual environment
+   > - Set your `GOOGLE_API_KEY` (edit the script to use your real key)
+   > - Start the SearxNG Docker container
+   > - Install Python dependencies
+   > - Start the FastAPI server
+
+3. **That’s it!**  
+   The FastAPI server will start automatically and you’re ready to go.
+
+**Note:**  
+- Make sure Docker, Python 3, and pip are installed on your system.  
+- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
+- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
+
+---
+
+## Method 2: Tedious but gives flexibility
+
 ```bash
 # Clone the repo
 git clone https://github.com/SPThole/CoexistAI.git
