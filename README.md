@@ -41,7 +41,7 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
    > The script will:
    > - Pull the SearxNG Docker image
    > - Create and activate a Python virtual environment
-   > - Set your `GOOGLE_API_KEY` (edit the script to use your real key). Obtain your API key (Currently Gemini, OpenAI and ollama is supported) from your preferred LLM provider. Once you have the key, update the app.py file or your environment variables as follows:
+   > - Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
    > - Start the SearxNG Docker container
    > - Install Python dependencies
    > - Start the FastAPI server
