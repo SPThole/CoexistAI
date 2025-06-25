@@ -67,8 +67,6 @@ cd CoexistAI
 pip install -r requirements.txt
 ```
 
----
-
 ## 🔎 SearxNG Setup:
 
 CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng) instance for privacy-friendly, customizable web search aggregation.
@@ -101,7 +99,7 @@ docker run --rm \
 
 ---
 
-## ⚡ Quickstart (API)
+##  Enabling API
 
 ### 1. Start the FastAPI server
 
