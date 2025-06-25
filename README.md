@@ -58,7 +58,7 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
 
 ## Method 2: Tedious but gives flexibility
 
-```bash
+1. ```bash
 # Clone the repo
 git clone https://github.com/SPThole/CoexistAI.git
 cd CoexistAI
@@ -66,7 +66,7 @@ cd CoexistAI
 # Install dependencies
 pip install -r requirements.txt
 ```
-1. 🔎 SearxNG Setup:
+2. 🔎 SearxNG Setup:
 
 CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng) instance for privacy-friendly, customizable web search aggregation.
 
@@ -81,7 +81,7 @@ docker pull docker.io/searxng/searxng:latest
 - You can edit `settings.yml` for advanced configuration (see `searxng/settings.yml` in this repo for a template).
 - if not just copy the folder searxng from this repo, at the same relative location in your machine
 
--- Run the following command: 
+3. Run the following command: 
 ```bash
 docker run --rm \
        -d -p 30:8080 \
@@ -91,14 +91,14 @@ docker run --rm \
        searxng/searxng
 ```
 
-2. Use SearxNG in Your Queries
+4. Use SearxNG in Your Queries
 
 - The web search utilities will automatically use your configured SearxNG instance for search aggregation.
 - For best results, ensure SearxNG is running before starting the FastAPI server or using the Python API.
 
-3.  Enabling API
+5.  Enabling API
 
-### 1. Start the FastAPI server
+### Start the FastAPI server
 
 ```bash
 uvicorn app:app --reload
@@ -110,7 +110,7 @@ If using local infinity embedding server (https://github.com/michaelfeil/infinit
 infinity_emb v2 --model-id hf_model_name
 ```
 
-### 2. Get Your API Key
+### Get Your API Key
 
 [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider. Once you have the key, update the `app.py` file or your environment variables as follows:
 
@@ -128,7 +128,7 @@ export YOUR_LLM_API_KEY=your-api-key-here
 
 Update the place (default: India) in utils/config.py for personalized results
 
-### 3. Web Search Endpoint
+### Web Search Endpoint
 
 For local files search or summary
 ```http
@@ -163,7 +163,7 @@ Content-Type: application/json
 }
 ```
 
-### 4. Reddit Summarizer Endpoint
+### Reddit Summarizer Endpoint
 
 ```http
 POST /reddit-search
@@ -178,7 +178,7 @@ Content-Type: application/json
 }
 ```
 
-### 5. YouTube Transcript Summarizer Endpoint
+### YouTube Transcript Summarizer Endpoint
 use latest version of youtube-transcript-api 1.1.0
 
 ```http
