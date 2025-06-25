@@ -58,7 +58,8 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
 
 ## Method 2: Tedious but gives flexibility
 
-1. ```bash
+1. Clone repo
+```bash
 # Clone the repo
 git clone https://github.com/SPThole/CoexistAI.git
 cd CoexistAI
@@ -66,7 +67,8 @@ cd CoexistAI
 # Install dependencies
 pip install -r requirements.txt
 ```
-2. 🔎 SearxNG Setup:
+
+🔎 SearxNG Setup:
 
 CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng) instance for privacy-friendly, customizable web search aggregation.
 
