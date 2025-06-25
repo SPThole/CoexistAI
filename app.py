@@ -19,7 +19,8 @@ else:
     print("SearxNG docker container is already running.")
 
 # Local LLMs are supported via OpenAI route, more support will be added soon..
-os.environ['GOOGLE_API_KEY'] = "YOUR_API_KEY"
+if not os.environ['GOOGLE_API_KEY']: # If its already set via export, it won't override
+    os.environ['GOOGLE_API_KEY'] = "YOUR_API_KEY"
 
 llm = get_generative_model(model_name='gemini-2.0-flash',
                     type='google',
