@@ -3,6 +3,7 @@ import time
 import random
 from utils.config import *
 from utils.utils import *
+from rank_bm25 import BM25Okapi
 
 # Define the user agent and headers
 headers = {
@@ -14,7 +15,7 @@ url_templates = {
     'hot': 'https://www.reddit.com/r/{subreddit}/hot.json',
     'new': 'https://www.reddit.com/r/{subreddit}/new.json',
     'top': 'https://www.reddit.com/r/{subreddit}/top.json?t={time_filter}',
-    'search': 'https://www.reddit.com/search.json?q={query}&sort={sort_type}',
+    'search': 'https://www.reddit.com/search.json?q={query}&sort={sort_type}&type=posts',
     'url': '{url}.json'
 }
 
@@ -60,18 +61,35 @@ def fetch_reddit_posts(subreddit=None, url_type='hot', limit=10, time_filter='al
             except:
                 pass
         else:
-            for post in data['data']['children'][:limit]:
+            # Collect posts with their scores
+            post_list = []
+            for post in data['data']['children']:
                 post_data = post['data']
                 title = post_data['title']
                 link = 'https://www.reddit.com' + post_data['permalink']
                 post_id = post_data['id']
                 selftext = post_data.get('selftext', '')
-                posts.append({'title': title, 'link': link, 'id': post_id, 'text': selftext, 'comments': []})
+                score = post_data.get('score', 0)
+                post_list.append({'title': title, 'link': link, 'id': post_id, 'text': selftext, 'comments': [], 'score': score})
+            # Sort posts by score in descending order bm25 lol because reddit doesnt give any # relevance score
+            if search_query:
+                # Prepare corpus and tokenize
+                corpus = [post['title'] + ' ' + post['text'] for post in post_list]
+                tokenized_corpus = [doc.lower().split() for doc in corpus]
+                bm25 = BM25Okapi(tokenized_corpus)
+                tokenized_query = search_query.lower().split()
+                scores = bm25.get_scores(tokenized_query)
+                # Attach BM25 scores and sort
+                for i, post in enumerate(post_list):
+                    post['bm25_score'] = scores[i]
+                post_list.sort(key=lambda x: x['bm25_score'], reverse=True)
+            else:
+                post_list.sort(key=lambda x: x['score'], reverse=True)
+            posts.extend(post_list[:limit])
         
         return posts
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching Reddit posts: {e}")
-        return posts
+    except Exception as e:
+        return [{"error": f"Error fetching Reddit posts: {str(e)}"}]
 
 # Function to fetch comments for a given post
 def fetch_post_comments(post_id, limit=5, is_custom_url=False):
@@ -187,7 +205,7 @@ def reddit_reader_response(
         custom_url (str, optional): A custom URL to fetch posts from. Defaults to None.
         time_filter (str, optional): The time filter for top posts (e.g., day, week, month, year, all). Defaults to 'all'.
         search_query (str, optional): The search query for fetching posts. Defaults to None.
-        sort_type (str, optional): The sort type for search results (e.g., relevance, new, top). Defaults to 'relevance'.
+        sort_type (str, optional): The sort type for search results (e.g., relevance, new, top,). Defaults to 'relevance'.
     Returns:
         str: The concatenated context string.
     """       
