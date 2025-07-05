@@ -8,6 +8,7 @@ import re
 import requests
 import time
 import random
+import json
 from bs4 import BeautifulSoup
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from functools import partial
@@ -21,6 +22,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import MarkdownHeaderTextSplitter, TokenTextSplitter
 from markdownify import markdownify as md
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_search import YoutubeSearch
 
 
 import chromadb
@@ -723,15 +725,31 @@ async def urls_to_docs(urls, local_mode=False, split=True):
     logger.info(f'Total URLs processed: {len(docs)}')
     return docs
 
-
-def youtube_transcript_response(query, task, model):
-    video_id = query.split("=")[1]
-    srt = YouTubeTranscriptApi.get_transcript(video_id)
-    transcript = ' '.join([s['text'] for s in srt])
-    prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
-    response = model.invoke(prompt)
-    return response.content
-
+def youtube_transcript_response(query, task, model,n=3):
+    overall_context = ''
+    if "youtube.com" in query:
+        video_id = query.split("=")[1]
+        srt = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = ' '.join([s['text'] for s in srt])
+        prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+        response = model.invoke(prompt)
+        overall_context = overall_context + f"\n\nVideo: {query}\nTranscript Summary: {response}\n\n"
+    else:
+        
+        videos = json.loads(YoutubeSearch(query, max_results=10).to_json())['videos'][:n]
+        for k in videos:
+            video_id = k['id']
+            title = k['title']  
+            channel = k['channel']
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            logger.info(f"Found YouTube video: {title} by {channel} at {url}")
+            srt = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = ' '.join([s['text'] for s in srt])
+            prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+            response = model.invoke(prompt)
+            overall_context += f"\n\nVideo: {title} by {channel}\nURL: {url}\nTranscript Summary: {response}\n\n"
+    print(f"Generated YouTube context for query '{query}': {overall_context}")
+    return overall_context
 
 def generate_doc_hash(text):
     """
@@ -744,3 +762,28 @@ def generate_doc_hash(text):
         str: The generated SHA256 hash of the document.
     """
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+async def summary_of_url(query, url, model, local_mode=False):
+    """
+    Generates a summary of the content at the specified URL or local file path.
+
+    Args:
+        query (str): The query string to use for summarization.
+        url (str): The URL or local file path to summarize.
+        model: The language model to use for generating the summary.
+        local_mode (bool, optional): If True, treat url as a local file. Defaults to False.
+
+    Returns:
+        str: The generated summary of the content.
+    """
+    try:
+        docs = await urls_to_docs([url], local_mode=local_mode)
+        if not docs:
+            logger.warning(f"No documents found for URL: {url}")
+            return "No content found to summarize."
+        text = docs[0].page_content
+        summary = model.invoke(f"Summarise the following content to answer {query}:\n{text}")
+        return summary
+    except Exception as e:
+        logger.error(f"Error summarizing URL {url}: {e}")
+        return "Error generating summary."
