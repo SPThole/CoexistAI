@@ -223,7 +223,7 @@ You can now run coexistai as an MCP server—**plug it into LM Studio** or any o
 2. Find the [MCP guide](https://lmstudio.ai/docs/app/plugins/mcp)
 
 <p align="center">
-  <img src="artifacts/lmstudio.png" alt="CoexistAI MCP Logo" width="300"/>
+  <img src="artifacts/lmstudio.png" alt="CoexistAI MCP Logo" width="600"/>
 </p>
 
 1. **Edit your `mcp.json` in LM Studio:**
