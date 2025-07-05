@@ -171,45 +171,83 @@ def get_route_directions(route_data: dict) -> str:
 
 # Main function to handle all logic and display map
 def generate_map(
-    start_location: str,
-    end_location: str,
+    start_location: Optional[str] = None,
+    end_location: Optional[str] = None,
     pois_radius: int = 500,
     amenities: str = "restaurant|cafe|bar|hotel",
-    limit: int = 3
+    limit: int = 3,
+    task: str = "route_and_pois"
 ) -> str:
     """
     Generates a map displaying a route between two locations, along with nearby POIs. 
     It also provides human-readable directions for the route.
+    Handles cases where start or end can be None.
     """
     try:
-        start_coords = auto_fix_destination(start_location, limit)
-        end_coords = auto_fix_destination(end_location, limit)
-        if not start_coords or not end_coords:
-            logger.error("Could not determine start or end location.")
-            return "Could not determine start or end location."
+        if task == 'location_only':
+            locations = ''
+            if start_location:
+                start_coords = auto_fix_destination(start_location, limit)
+                if not start_coords:
+                    logger.error("Could not determine start location.")
+                    locations += "Could not determine start location. Else rate limit reached. Try to find on internet or be less specific."
+                else:
+                    locations += f"Start location: {start_coords[0]} (Lat: {start_coords[1]}, Lon: {start_coords[2]})\n"
+            if end_location:
+                end_coords = auto_fix_destination(end_location, limit)
+                if not end_coords:
+                    logger.error("Could not determine end location.")
+                    locations += "Could not determine end location. Else rate limit reached. Try to find on internet or be less specific."
+                else:
+                    locations += f"End location: {end_coords[0]} (Lat: {end_coords[1]}, Lon: {end_coords[2]})\n"
+            if not start_location and not end_location:
+                locations = "No start or end location provided."
+            return locations
 
-        route_data = get_route((start_coords[1], start_coords[2]), (end_coords[1], end_coords[2]))
-        if not route_data:
-            logger.error("No route data found.")
-            return "No route data found."
+        elif task == 'route_and_pois':
+            err = ''
+            start_coords = auto_fix_destination(start_location, limit) if start_location else None
+            end_coords = auto_fix_destination(end_location, limit) if end_location else None
 
-        route_coords = route_data['geometry']['coordinates']
-        pois_start = get_pois((start_coords[1], start_coords[2]), radius=pois_radius, amenities=amenities)
-        pois_end = get_pois((end_coords[1], end_coords[2]), radius=pois_radius, amenities=amenities)
-        m = create_map(
-            (start_coords[1], start_coords[2]),
-            (end_coords[1], end_coords[2]),
-            route_coords,
-            pois_start,
-            pois_end
-        )
-        
-        output_folder = "output"
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        m.save(os.path.join(output_folder, "map_with_route_and_pois.html"))
-        logger.info("Map generated and saved as 'map_with_route_and_pois.html'.")
-        return get_route_directions(route_data)
+            if not start_coords and not end_coords:
+                logger.error("Neither start nor end location provided or found.")
+                return "Neither start nor end location provided or found. Else rate limit reached"
+
+            if not start_coords:
+                logger.error("Could not determine start location.")
+                err += "Could not determine start location. Else rate limit reached. Try to find on internet or be less specific. "
+
+            if not end_coords:
+                logger.error("Could not determine end location.")
+                err += "Could not determine end location. Else rate limit reached. Try to find on internet or be less specific."
+
+            if not start_coords or not end_coords:
+                logger.error("Could not determine start or end location.")
+                return err.strip()
+
+            route_data = get_route((start_coords[1], start_coords[2]), (end_coords[1], end_coords[2]))
+            if not route_data:
+                logger.error("No route data found.")
+                return "No route data found. Else rate limit reached"
+
+            route_coords = route_data['geometry']['coordinates']
+            pois_start = get_pois((start_coords[1], start_coords[2]), radius=pois_radius, amenities=amenities)
+            pois_end = get_pois((end_coords[1], end_coords[2]), radius=pois_radius, amenities=amenities)
+            m = create_map(
+                (start_coords[1], start_coords[2]),
+                (end_coords[1], end_coords[2]),
+                route_coords,
+                pois_start,
+                pois_end
+            )
+            
+            output_folder = "output"
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
+            m.save(os.path.join(output_folder, "map_with_route_and_pois.html"))
+            logger.info("Map generated and saved as 'map_with_route_and_pois.html'.")
+            return get_route_directions(route_data) + f"\n\nPoints of interest around start: {pois_start}, end: {pois_end}. Map saved as 'map_with_route_and_pois.html'." + \
+                "start location: " + str(start_coords) + ", end location: " + str(end_coords[0])
     except Exception as e:
-        logger.error(f"Error in generate_map: {e}")
-        return f"Error generating map: {e}"
+        logger.error(f"Error in map functions: {e},Else rate limit reached")
+        return f"Error in map functions: {e},Else rate limit reached"
