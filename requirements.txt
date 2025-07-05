@@ -32,3 +32,5 @@ rank_bm25
 langchain_experimental
 einops
 sentence-transformers
+youtube_search
+fastapi-mcp
