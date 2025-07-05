@@ -115,7 +115,7 @@ async def get_git_search(request:GitSearchRequest):
                         or the local path to the root of the repository.
         part (str): The path inside the repository you wish to access (e.g., 'basefolder/subfolder'). use get_git_tree for getting specific part if needed
         query (str): Users query
-        type (str): "Folder" or "file"
+        type (str): "folder" or "file"
     Returns:
         str: Response of the users query based on the content fetched
     """
