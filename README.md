@@ -6,7 +6,7 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
   <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
 </p>
 
-## Whats New: (Read More: [Here](README_MCP.md)
+## New Updates: Read More: [Here](README_MCP.md)
 
 - **Smarter, cheaper prompts:** Built-in guardrails help you save API costs with smarter prompt handling, especially for paid LLMs. Max documents limits of summarization.
 - **Direct location search:** You can now search for any place, not just find routes!
@@ -15,9 +15,6 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
 - **Sharper web search:** More focused and actionable results than ever before.
 - **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! (See Guide Below)
 - **GitHub & local repo explorer:** Explore directory trees or ask questions about code—works with both GitHub and local repos!
-
-
-
 
 
 ## 🚀 Features
