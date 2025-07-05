@@ -4,7 +4,9 @@ from utils.map import *
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from utils.utils import *
+from utils.map import *
 import subprocess
+from fastapi_mcp import FastApiMCP
 
 if not is_searxng_running():
     subprocess.run([
@@ -31,6 +33,7 @@ llm = get_generative_model(model_name='gemini-2.0-flash',
 text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 hf_embeddings, cross_encoder = load_model("models/embedding-001",_embed_mode='gemini')
 searcher = SearchWeb(30)
+date, day = get_local_data()
 
 app = FastAPI(title='coexistai')
 
@@ -40,62 +43,130 @@ async def root():
 
 class WebSearchRequest(BaseModel):
     query: str
-    date: str
-    day: str
-    rerank: bool = False
+    rerank: bool = True
     num_results: int = 3
     local_mode: bool = False
     split: bool = True
-    document_paths: list = []
+    document_paths: list[list[str]] = []  # List of paths for local documents
 
 class YouTubeSearchRequest(BaseModel):
-    url: str
+    query: str
     prompt: str
+    n: int = 1  # Number of videos to summarize, default is 1
 
-@app.post('/websearch')
+class RedditSearchRequest(BaseModel):
+    subreddit: str = None
+    url_type: str = "hot"
+    n: int = 3
+    k: int = 1
+    custom_url: str = None
+    time_filter: str = "all"
+    search_query: str = None
+    sort_type: str = "relevance"
+
+class MapSearchRequest(BaseModel):
+    start_location: Optional[str] = None  # Start location can be a string or None
+    end_location: Optional[str] = None  # End location can be a string or None
+    pois_radius: int = 500  # Default radius for POIs in meters
+    amenities: str = "restaurant|cafe|bar|hotel"  # Default amenities to search for
+    limit: int = 3  # Default number of results to return
+    task: str = "route_and_pois"  # Default task is to find a route
+
+class WebSummarizeRequest(BaseModel):
+    query: str
+    url: str
+    local_mode: bool = False
+
+
+@app.post('/web-search',operation_id="get_web_search")
 async def websearch(request: WebSearchRequest):
+    """
+    Performs a web search and retrieves results, then generates a response based on those results.
+    It also throws back the next steps, you should carry out your research until there are no next steps left.
+    Args:
+        query (str): The input query.
+        rerank (bool): Whether to rerank results.
+        num_results (int, optional): Number of search results to retrieve. Defaults to 3. (can take values from 1-5)
+        document_paths (list of list, optional): List of list of paths for local documents. Defaults to empty list. for an example [[doc_1_path, doc_2_path], [doc_3_path]]. if different tasks are related to different documents
+        local_mode (bool, optional): Whether to process local documents. Defaults to False.
+        split (bool, optional): Whether to split documents into chunks. Defaults to True.
+
+    Returns:
+        tuple: Generated response, sources, search results, retrieved documents, and context.
+    """
     # You may need to adjust these arguments based on your actual setup
     # For demonstration, using None for models and embeddings
     result = await query_web_response(
         query=request.query,
-        date=request.date,
-        day=request.day,
+        date=date,
+        day=day,
         websearcher=searcher,  # Replace with your actual searcher instance if needed
         hf_embeddings=hf_embeddings,
         rerank=request.rerank,
         cross_encoder=cross_encoder,
         model=llm,
         text_model=llm,
-        num_results=request.num_results,
+        num_results=min(2,request.num_results),
         document_paths=request.document_paths,
         local_mode=request.local_mode,
         split=request.split
     )
-    return {"result": result}
+    return "result:" + result[0] + '\n\nsources:' + result[1]
 
-@app.post('/youtube-search')
+@app.post('/web-summarize', operation_id="get_web_summarize")
+async def websummarize(request: WebSummarizeRequest):
+    """Generates a summary of a web page based on the provided query and URL.
+    Args:
+        query (str): The input query.
+        url (str): The URL of the web page to summarize.
+        model (str): The model to use for summarization.
+        local_mode (bool): Whether to process local documents.
+    Returns:
+        dict: A dictionary containing the generated summary and sources."""
+    result = await summary_of_url(
+        query=request.query,
+        url=request.url,
+        model=llm,  # Replace with your actual model if needed
+        local_mode=request.local_mode
+    )
+    return result
+
+@app.post('/youtube-search', operation_id="get_youtube_search")
 async def youtube_search(request: YouTubeSearchRequest):
+    """Performs a YouTube search and return summaries of it.
+    Args:
+        query (str): The YouTube video URL if provided else search term
+        prompt (str): The prompt to generate a response from the transcript.
+        n (int): Number of videos to summarize if search term is provided instead of URL.
+    Returns:
+        dict: response from the YouTube transcripts based on the given query"""
     # You may need to adjust the model argument as per your setup
     result = youtube_transcript_response(
-        request.url,
+        request.query,
         request.prompt,
+        n = request.n, #number of videos to summarise
         model=llm  # Replace with your actual model if needed
     )
-    return {"result": result}
+    return result
 
-class RedditSearchRequest(BaseModel):
-    subreddit: str = None
-    url_type: str = "hot"
-    n: int = 10
-    k: int = 5
-    custom_url: str = None
-    time_filter: str = "all"
-    search_query: str = None
-    sort_type: str = "relevance"
-
-@app.post('/reddit-search')
+@app.post('/reddit-search', operation_id="get_reddit_search")
 async def reddit_search(request: RedditSearchRequest):
+    """Performs a Reddit search and retrieves posts based on the provided parameters.
+    Args:
+        subreddit (str): The subreddit to search in. When search_query is provided
+        url_type (str): The type of Reddit URL to fetch (e.g., 'search','hot', 'new','top','best','controversial','rising').
+                        set to 'search' if specific search_query is provided
+        n (int): Number of posts to retrieve.
+        k (int): Number of comments on each post to return after processing. When more perspectives needed increase this.
+        custom_url (str): Custom URL for Reddit search.
+        time_filter (str): Time filter for the search (e.g., 'all', 'day').
+        search_query (str): Search query for Reddit posts.
+        sort_type (str): Sorting type for the results.
+        Returns:                                            
+            dict: A dictionary containing the results of the Reddit search."""  
     # You may need to adjust the model argument as per your setup
+    if request.search_query:
+        request.url_type = 'search'
     result = reddit_reader_response(
         subreddit=request.subreddit,
         url_type=request.url_type,
@@ -107,4 +178,35 @@ async def reddit_search(request: RedditSearchRequest):
         sort_type=request.sort_type,
         model=llm  # Replace with your actual model if needed
     )
-    return {"result": result}
+    return result
+
+@app.post('/map-search', operation_id="get_map_search")
+async def map_search(request: MapSearchRequest):
+    """Performs a map search and retrieves the route and points of interest like  (POIs) between two locations.
+    Args:
+        start_location (optional str): The starting location for the route. can be None as well
+        end_location (optional str): The destination location for the route.can be None as well
+        pois_radius (int): Radius in meters to search for points of interest around the route.
+        amenities (str): Types of amenities to search for, separated by '|'. For example, "restaurant|cafe|bar|hotel".
+        limit (int): Maximum number of POIs to return.
+        task (str): The task to perform, either "location_only" - if lat long of start and end location is needed,
+            else by default is "route_and_pois" - if route and POIs are needed.
+    Returns:
+        dict: location or route and POIs or both"""
+    result = generate_map(request.start_location,
+                        request.end_location,
+                        pois_radius=request.pois_radius,
+                        amenities=request.amenities,
+                        limit=request.limit,
+                        task=request.task,
+                        )
+    return result
+
+
+mcp = FastApiMCP(app,include_operations=['get_web_search',
+                                         'get_web_summarize',
+                                         'get_youtube_search',
+                                         'get_reddit_search',
+                                         'get_map_search',
+                                         ],)
+mcp.mount()
