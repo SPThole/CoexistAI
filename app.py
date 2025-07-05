@@ -5,8 +5,10 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from utils.utils import *
 from utils.map import *
+from utils.git_utils import *
 import subprocess
 from fastapi_mcp import FastApiMCP
+
 
 if not is_searxng_running():
     subprocess.run([
@@ -77,6 +79,56 @@ class WebSummarizeRequest(BaseModel):
     url: str
     local_mode: bool = False
 
+class GitTreeRequest(BaseModel):
+    repobaseurl: str  
+
+class GitSearchRequest(BaseModel):
+    repobaseurl: str 
+    parttoresearch: str
+    query: str
+    type: str
+
+@app.post('/git-tree-search',operation_id="get_git_tree")
+async def get_git_tree(request:GitTreeRequest):
+   """
+    Retrieves and returns the directory tree structure of a GitHub repository or a local Git repository.
+
+    Args:
+        url (str): The base URL of the GitHub repository (e.g., 'https://github.com/user/repo')
+                   or the path to the local repository on your system.
+
+    Returns:
+        str: The directory tree structure as a string.
+    """
+   return await git_tree_search(request.repobaseurl)
+
+@app.post('/git-search',operation_id="get_git_search")
+async def get_git_search(request:GitSearchRequest):
+   """
+    Fetches the content of a specific part (directory or file) from either and does what asked in users query.
+    First use get_git_tree to understand the structure of the repo and which part might be useful to answer users query
+    - a GitHub repository (via URL), or
+    - a local Git repository (via local path).
+
+    Args:
+        base_url (str): The base URL of the GitHub repository (e.g., 'https://github.com/user/repo'),
+                        or the local path to the root of the repository.
+        part (str): The path inside the repository you wish to access (e.g., 'basefolder/subfolder'). use get_git_tree for getting specific part if needed
+        query (str): Users query
+        type (str): "Folder" or "file"
+    Returns:
+        str: Response of the users query based on the content fetched
+    """
+   content = await git_specific_content(request.repobaseurl,request.parttoresearch,request.type)
+   prompt = f"""You are a professional coder, your task is to answer the users query based on the content fetched from git repo
+User Query: {request.query}
+Fetched Content: {content}
+"""
+
+   result = llm.invoke(
+        prompt
+    )
+   return result.content
 
 @app.post('/web-search',operation_id="get_web_search")
 async def websearch(request: WebSearchRequest):
