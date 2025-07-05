@@ -36,19 +36,20 @@ def query_agent(query, llm, date, day):
         If necessary, split the query into up to 2 diverse subqueries to cover all aspects.
         Subqueries should not be in a numbered list.
         Plan searches to answer every part of the query without overemphasizing any term.
-        Ensure that subqueries include essential keywords and context from the original query to maintain relevance.
+        Ensure that subqueries include essential keywords and context from the original query to maintain relevance. Every query will be searched independently, so ensure that each subquery is self-contained and can be understood without additional context.
         Avoid generating subqueries that are too generic or lack specific terms from the original query.
         When rephrasing, retain the main subject and important details from the original query in each subquery.
+        CHECK FOR NEXT STEPS OR INCOMPLETE INFORMATION ELEMENTS IN EARLIER RESPONSE OR QUERY, IF THERE ARE ANY PLAN ACCORDINGLY.
         """ + "Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information.",
 
         planning_to_answer_query_to_help_finding_subqueries: list[str] = Field(
-            description="Up to 6 planning steps breaking down the task without overemphasizing any keyword, Context: Today's date is {date} {day}, {place}."
+            description="Up to 6 sub-tasks, breaking down the task without overemphasizing any keyword, Context: Today's date is {date} {day}, {place}. These tasks are being given to different agents, so each task description should be self sufficient with all details. Avoid sequntial tasks, break it down into parallel tasks."
         )
         subqueries: list[str] = Field(
-            description="Up to 6 rephrased phrases covering all planning steps in independent search phrases , using a maximum of 4 words per subquery, avoiding unnecessary adjectives, Context: Today's date is {date} {day}, {place}"
+            description="Up to 6 rephrased phrases covering all planning steps in independent search phrases , using a maximum of 6 words per subquery, include all details for the subtasks based on query, Context: Today's date is {date} {day}, {place}"
         )
         is_summary: bool = Field(
-            description="Whether the subqueries are intended to summarize."
+            description="Whether the subqueries are intended to summarize. Generally, for the subqueries focused on structured data, tables, list, codes. You SHOULD use summarise!"
         )
         is_covered_urls: bool = Field(  
             description="Whether the query is asking something that is related to youtube or reddit."
@@ -99,10 +100,13 @@ def response_gen(model, query, context):
     class ResponseGen(BaseModel):
         f"""Generates a comprehensive response for a given query using an LLM, incorporating context.
         Instructions:
+        You are an AI assistant that generates a comprehensive response to a user query using the provided context.
 
         Understand the query thoroughly, even if it contains misspellings or errors. Use the provided context and related information to interpret the intended meaning.
 
         Answer the query using the context and available information; if the context is insufficient, utilise whatever information is relevant, its fine even if answer is incomplete. utilize your own knowledge to provide a complete answer, including code if requested.
+
+        Dont just provide what is their in the web search results, but synthesize the information from the context and your own knowledge to create a comprehensive answer. If the query is about code, provide the code directly rather than a plan to implement it.
 
         Provide direct answers: If the query asks for code, supply the code rather than a plan to implement it. Learn facts, syntax, and structures from the context to create accurate responses.
 
@@ -117,18 +121,19 @@ def response_gen(model, query, context):
         {context}
 
         KEEP ANSWER CONCISE UNLESS ASKED FOR DETAILED.
+        Summarize the context to answer user query, capture granularity to help customer and get value from the context.
         """
         intent_understanding: str = Field(
             description="Understanding of the query, including any misspellings or errors."
         )
         synthesized_answer_based_on_various_sources: str = Field(
-            description="Concise answer to the query, using all available information, even if limited."
+            description="Detailed answer to the query based on all available information in the context, even if limited."
         )
         sources: list[str] = Field(
             description="List of sources used to answer the query, including hyperlinks to search results."
         )
         next_steps: Union[str, None] = Field(
-            description="Next steps/searches needed based on the query, if applicable; otherwise, None."
+            description="Next steps/searches needed to accomplish complete response to users query, if applicable (incomplete answers); and otherwise, None.( Tip:Many of the cases, summarising one link from sources would suffice)"
         )
 
     logger.info("Generating Answer for query: %s", query)
@@ -161,7 +166,7 @@ def response_gen(model, query, context):
     return answer, sources
 
 
-def summarizer(query, docs, llm, batch):
+def summarizer(query, docs, llm, batch,max_docs=30):
     """
     Summarizes a list of documents iteratively in batches using an LLM.
 
@@ -193,6 +198,10 @@ def summarizer(query, docs, llm, batch):
             return []
 
     print(f"Summarising using {len_docs} documents")
+    if len_docs > max_docs:
+        logger.warning(f"Too many documents ({len_docs}) provided, limiting to {max_docs}. This may lead to loss of information.")
+        docs = docs[:max_docs]
+        len_docs = max_docs
     while len_docs > 1:
         summaries = []
         for i in range(0, len_docs, batch):
