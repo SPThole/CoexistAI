@@ -260,5 +260,7 @@ mcp = FastApiMCP(app,include_operations=['get_web_search',
                                          'get_youtube_search',
                                          'get_reddit_search',
                                          'get_map_search',
+                                         "get_git_tree",
+                                         "get_git_search"
                                          ],)
 mcp.mount()
