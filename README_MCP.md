@@ -229,7 +229,7 @@ You can now run coexistai as an MCP server—**plug it into LM Studio** or any o
 1. **Edit your `mcp.json` in LM Studio:**
     - Go to the Program tab → `Install > Edit mcp.json`
     - Add coexistai as a server. Example:
-      ```
+    ```json
     {
         "mcpServers": {
              "coexistai": {
@@ -237,7 +237,7 @@ You can now run coexistai as an MCP server—**plug it into LM Studio** or any o
         }
     }
     }
-      ```
+    ```
     - Replace with your actual server address and token (if needed).
 
 2. **Or use an "Add to LM Studio" button** (if provided on coexistai website).
@@ -254,8 +254,6 @@ For fastest, highest-quality local LLM results, I have personally liked followin
 ---
 
 ## 🛠 Quick Start
-
-## 🛠️ Installation
 
 ### METHOD 1 (Less flexible but faster):
 
