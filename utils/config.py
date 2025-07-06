@@ -163,8 +163,9 @@ You are given with context, which has real time data, never say that you dont ha
     
     Query:{query}""",
 
-"summary_generation":"""Your task is to generate detailed summary of the given documents wrt to answer user query :{query}
+"summary_generation":"""Your task is to generate detailed summary of the given documents to answer user's query :{query}
           Documents: {comb_docs}
+          Stick to given documents, summary should look like an answer to the query, enlist assumptions made  (if any)
           """ ,
 
 
