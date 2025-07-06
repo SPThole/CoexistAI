@@ -781,7 +781,7 @@ async def summary_of_url(query, url, model, local_mode=False):
         if not docs:
             logger.warning(f"No documents found for URL: {url}")
             return "No content found to summarize."
-        text = docs[0].page_content
+        text = 'source:' + str(url)  + '\n\ncontent:' + docs[0].page_content
         summary = model.invoke(f"Summarise the following content to answer {query}:\n{text}")
         return summary
     except Exception as e:
