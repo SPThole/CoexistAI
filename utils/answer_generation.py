@@ -51,6 +51,9 @@ def query_agent(query, llm, date, day):
         is_summary: bool = Field(
             description="Whether the subqueries are intended to summarize. Generally, for the subqueries focused on structured data, tables, list, codes. You SHOULD use summarise!"
         )
+        is_structured_data: bool = Field(
+            description= "Whether the query will hit a page with structured data like tables, codes, list, indexes, where full page full page would be needed to access to answer the query OR is it the case chunking page content will leave give only half of required information for a given query"
+        )
         is_covered_urls: bool = Field(  
             description="Whether the query is asking something that is related to youtube or reddit."
         )
@@ -62,6 +65,8 @@ def query_agent(query, llm, date, day):
             f"\nquery: {query}"
         )
         is_summary = response.is_summary
+        if response.is_structured_data:
+            is_summary = True
         is_covered_urls = response.is_covered_urls
         response = response.subqueries
     except Exception as e:
