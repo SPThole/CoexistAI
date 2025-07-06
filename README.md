@@ -143,66 +143,193 @@ Update the place (default: India) in utils/config.py for personalized results
 
 ### Web Search Endpoint
 
-For local files search or summary
-```http
-POST /websearch
-Content-Type: application/json
-{
-  "query": "Summarise these files",
-  "date": "2025-05-28",
-  "day": "Wednesday",
-  "rerank": false,
-  "num_results": 3,
-  "local_mode": true,
-  "split": true,
-  "document_paths": [["file1.pdf", "file2.pdf"]] # list of lists
-}
+### 1. Web Search
+**Search the web, summarize, and get actionable answers—automatically.**
+
+**Endpoint:**  
+POST `/web-search`
+
+**Request Example:**
 ```
 
-OR 
-
-```http
-POST /websearch
-Content-Type: application/json
 {
-  "query": "Top AI research conferences in december",
-  "date": "2025-05-28",
-  "day": "Wednesday",
-  "rerank": false,
+  "query": "Top news of today worldwide",
+  "rerank": true,
   "num_results": 3,
   "local_mode": false,
   "split": true,
   "document_paths": []
 }
+
 ```
 
-### Reddit Summarizer Endpoint
+or QA/sumamrise local documents 
 
-```http
-POST /reddit-search
-Content-Type: application/json
+```
 {
-  "subreddit": "OpenAI",
-  "url_type": "hot",
-  "n": 5,
-  "k": 3,
-  "search_query": null,
+  "query": "Summarise this research paper",
+  "rerank": true,
+  "num_results": 3,
+  "local_mode": true,
+  "split": true,
+  "document_paths": [["documents/1706.03762v7.pdf"]] # has to be list of list
+}
+
+```
+
+---
+
+### 2. Summarize Any Web Page
+**Summarize any article or research paper by URL.**
+
+**Endpoint:**  
+POST `/web-summarize`
+
+**Request Example:**
+```
+
+{
+  "query": "Write a short blog on the model",
+  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF",
+  "local_mode": false
+}
+
+```
+
+---
+
+### 3. YouTube Search 
+**Search YouTube (supports prompts and batch).**
+
+**Endpoint:**  
+POST `/youtube-search`
+
+**Request Example:**
+```
+
+{
+  "query": "switzerland itinerary",
+  "prompt": "I want to plan my switzerland trip",
+  "n": 2 # top n searches to summarise 
+}
+```
+
+---
+
+### 4. Reddit Deep Dive
+**Custom Reddit search, sort, filter, and get top comments.**
+
+**Endpoint:**  
+POST `/reddit-search`
+
+**Request Example:**
+```
+
+{
+  "subreddit": "",
+  "url_type": "search",
+  "n": 3,
+  "k": 1,
+  "custom_url": "",
+  "time_filter": "all",
+  "search_query": "gemma 3n reviews",
   "sort_type": "relevance"
 }
+
 ```
 
-### YouTube Transcript Summarizer Endpoint
-use latest version of youtube-transcript-api 1.1.0
+---
 
-```http
-POST /youtube-search
-Content-Type: application/json
+### 5. Map & Location/Route Search
+**Find places, routes, and nearby points of interest.**
+
+**Endpoint:**  
+POST `/map-search`
+
+**Request Example:**
+```
+
 {
-  "url": "https://www.youtube.com/watch?v=...",
-  "prompt": "Summarize the main points."
+  "start_location": "MG Road, Bangalore",
+  "end_location": "Lalbagh, Bangalore",
+  "pois_radius": 500,
+  "amenities": "restaurant|cafe|bar|hotel",
+  "limit": 3,
+  "task": "route_and_pois"
 }
+
 ```
 
+OR search for any single location (open street map has api rate limit)
+
+```
+
+{
+  "start_location": "MG Road, Bangalore",
+  "end_location": "Lalbagh, Bangalore",
+  "pois_radius": 500,
+  "amenities": "restaurant|cafe|bar|hotel",
+  "limit": 3,
+  "task": "location_only"
+}
+
+```
+
+---
+
+### 6. GitHub & Local Repo Directory Tree
+**Get the directory structure of any GitHub or local repo.**
+
+**Endpoint:**  
+POST `/git-tree-search`
+
+**Request Example:**
+```
+
+{
+  "repobaseurl": "https://github.com/SPThole/CoexistAI/"
+}
+
+```
+or for local repo:
+```
+
+{
+"repobaseurl": "/home/user/projects/myrepo"
+}
+
+```
+
+---
+
+### 7. Ask Questions or Search Inside GitHub/Local Code
+**Fetch, search, and analyze code in any repo.**
+
+**Endpoint:**  
+POST `/git-search`
+
+**Request Example:**
+```
+
+{
+"repobaseurl": "https://github.com/google-deepmind/gemma",
+"parttoresearch": "gemma/research/t5gemma/t5gemma.py",
+"query": "explain t5gemma",
+"type": "file"
+}
+
+```
+or:
+```
+
+{
+"repobaseurl": "https://github.com/openai",
+"parttoresearch": "openai-cookbook/examples/mcp",
+"query": "Write a medium blog, for beginners",
+"type": "folder"
+}
+
+```
 ---
 
 ## 🧑‍💻 Usage in Python
