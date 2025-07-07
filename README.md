@@ -142,7 +142,8 @@ export YOUR_LLM_API_KEY=your-api-key-here
 
 Update the place (default: India) in utils/config.py for personalized results
 
-### Web Search Endpoint
+### How to use FASTAPI/tools
+**Remove comments after // before pasting**
 
 ### 1. Web Search
 **Search the web, summarize, and get actionable answers—automatically.**
