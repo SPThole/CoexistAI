@@ -329,57 +329,80 @@ or:
 ---
 
 ## 🧑‍💻 Usage in Python
+[see example notebook](coexist_tutorial.ipynb)
 
 ```python
 from utils.websearch_utils import query_web_response
 from utils.reddit_utils import reddit_reader_response
 
-# Web search
+# Web Exploration
 result = await query_web_response(
-  query="latest AI research",
-  date="2025-05-28",
-  day="Wednesday",
-  websearcher=None,
-  hf_embeddings=None,
-  rerank=False,
-  cross_encoder=None,
-  model=None, #replace with llm
-  text_model=None,
-  num_results=3,
+  query="latest AI research in the last 7 days",
+  date="2025-07-08",
+  day="Tuesday",
+  websearcher=searcher, #Searxng 
+  hf_embeddings=hf_embeddings,#embedder
+  rerank=True,
+  cross_encoder=cross_encoder,#reranker
+  model=llmgoogle, #replace with llm
+  text_model=llmgoogle,#replace with llm
+  num_results=1,#topk results for each subquery
   document_paths=[],
   local_mode=False, # True if you have local files in document_paths
   split=True
 )
 
-# Reddit summarization
-summary = reddit_reader_response(
-  subreddit="OpenAI",
-  url_type="hot",
-  n=5,
-  k=3,
-  custom_url=None,# Replace with llm
-  time_filter="all",
-  search_query=None,
-  sort_type="relevance",
-  model=None
+result = await query_web_response(
+  query="summarise in the form of linkedin post https://modelcontextprotocol.io/introduction",
+  date="2025-07-08",
+  day="Tuesday",
+  websearcher=searcher, #Searxng 
+  hf_embeddings=hf_embeddings,#embedder
+  rerank=True,
+  cross_encoder=cross_encoder,#reranker
+  model=llmgoogle, #replace with llm
+  text_model=llmgoogle,#replace with llm
+  num_results=1,#topk results for each subquery
+  document_paths=[],
+  local_mode=False, # True if you have local files in document_paths
+  split=True
 )
-```
 
----
+##  Reddit Exploration
+summary = reddit_reader_response(
+  subreddit="",
+  url_type="search",
+  n=5,
+  k=2,
+  custom_url=None,# Replace with llm
+  time_filter="month",
+  search_query="Gemma 3N reviews",
+  sort_type="relevance",
+  model=llmgoogle
+)
 
-## 🌍 Example: Map Generation
-
-```python
+## Map Exploration
 from utils.map import generate_map
 # Generate a map with route and POIs
 html_path = generate_map("MG Road, Bangalore", "Indiranagar, Bangalore", 500, "hotel", 3)
+locations = generate_map("MG Road, Bangalore", "Indiranagar, Bangalore", 500, "", 3,"location_only")
+
+## Youtube Exploration
+from utils.websearch_utils import *
+learnings = youtube_transcript_response("https://www.youtube.com/watch?v=DB9mjd-65gw",
+                            "Summarise this podcast and share me top learnings as a data scientist",
+                            llmgoogle)
+
+podcast = youtube_transcript_response("History of India top 5 interesting facts",
+                            "Make a podcast of this in Hindi, 5 minutes long",
+                            llmgoogle,
+                            1)
+
+## Git exploration
+from utils.git_utils import *
+tree = await git_tree_search("https://github.com/SPThole/CoexistAI")
+content = await git_specific_content("https://github.com/SPThole/CoexistAI","README.md","file")
 ```
-
----
-
-## 📚 Notebooks
-
-- The Coexist tutorial can be found in `coexist_tutorial.ipynb`.
 
 ---
 
@@ -388,6 +411,7 @@ html_path = generate_map("MG Road, Bangalore", "Indiranagar, Bangalore", 500, "h
 - **Plug in your own LLMs**: Swap out Google Gemini for OpenAI, Ollama, or any LangChain-supported model.
 - **Custom Tools**: Add your own tools to the agent system for new capabilities (see `utils/` for examples).
 - **Async/Parallel**: All web and document search utilities are asynchronous for high performance.
+- **MCP Servers**: Connect your local apps like lmstudio with coexistAI MCP server, all local
 
 ---
 
