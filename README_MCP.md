@@ -1,4 +1,4 @@
-# coexistai v0.0.2 – What's New & How to Use
+# CoexistAi v0.0.2 
 
 <p align="center">
   <img src="artifacts/v002mcplogo.jpeg" alt="CoexistAI MCP Logo" width="200"/>
@@ -7,17 +7,19 @@
 
 ## 🚀 What's New in v2
 
-- **Smarter, cheaper prompts:** Built-in guardrails help you save API costs with smarter prompt handling, especially for paid LLMs. Max documents limits of summarization.
 - **Direct location search:** You can now search for any place, not just find routes!
-- **Advanced Reddit search:** Use your own phrases; results ranked better with BM25 for sharper discovery.
-- **YouTube power-up:** Search and summarize YouTube using your own search or video URLs and even add a prompt for custom responses.
+- **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
+- **YouTube power-up:** Search and summarize YouTube using your own search phrases or video URLs and even add a prompt for custom responses.
 - **Sharper web search:** More focused and actionable results than ever before.
-- **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! (See Guide Below)
-- **GitHub & local repo explorer:** Explore directory trees or ask questions about code—works with both GitHub and local repos!
+- **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! [See Guide](README_MCP.md)
+- **GitHub & local repo explorer:** Explore ask questions about codebases - works with both GitHub and local repos!
 
 ---
 
 ## 🔍 What Can You Do? (API Highlights & Examples)
+
+**Remove comments after // before pasting**
+Swagger UI: http://127.0.0.1:8000/docs  if you haven't changed the host and port
 
 ### 1. Web Search
 **Search the web, summarize, and get actionable answers—automatically.**
@@ -26,31 +28,29 @@
 POST `/web-search`
 
 **Request Example:**
-```
-
+```json
 {
-  "query": "Top news of today worldwide",
-  "rerank": true,
-  "num_results": 3,
-  "local_mode": false,
-  "split": true,
-  "document_paths": []
+  "query": "Top news of today worldwide", // Query you want to ask; if you provide a URL and ask to summarise, it will summarize the full page.
+  "rerank": true, // Set to true for better result ranking.
+  "num_results": 2, // Number of top results per subquery to explore (higher values = more tokens, slower/more costly).
+  "local_mode": false, // Set to true to explore local documents (currently, only PDF supported).
+  "split": true, // Set to false if you want full pages as input to LLMs; false may cause slower/more costly response.
+  "document_paths": [] // If local_mode is true, add a list of lists of document paths, e.g., [["documents/1706.03762v7.pdf"]]
 }
 
 ```
 
 or QA/sumamrise local documents 
 
-```
+```json
 {
   "query": "Summarise this research paper",
   "rerank": true,
   "num_results": 3,
   "local_mode": true,
   "split": true,
-  "document_paths": [["documents/1706.03762v7.pdf"]] # has to be list of list
+  "document_paths": [["documents/1706.03762v7.pdf"]] // Must be a list of lists.
 }
-
 ```
 
 ---
@@ -62,12 +62,12 @@ or QA/sumamrise local documents
 POST `/web-summarize`
 
 **Request Example:**
-```
+```json
 
 {
-  "query": "Write a short blog on the model",
-  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF",
-  "local_mode": false
+  "query": "Write a short blog on the model", // Instruction or question for the fetched page content.
+  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF", // Webpage to fetch content from.
+  "local_mode": false // Set to true if summarizing a local document.
 }
 
 ```
@@ -81,12 +81,12 @@ POST `/web-summarize`
 POST `/youtube-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "query": "switzerland itinerary",
-  "prompt": "I want to plan my switzerland trip",
-  "n": 2 # top n searches to summarise 
+  "query": "switzerland itinerary", // Query to search on YouTube; if a URL is provided, it fetches content from that URL. url should be in format: https://www.youtube.com/watch?v=videoID
+  "prompt": "I want to plan my Switzerland trip", // Instruction or question for using the fetched content.
+  "n": 2 // Number of top search results to summarize (only works if query is not a URL).
 }
 ```
 
@@ -99,17 +99,17 @@ POST `/youtube-search`
 POST `/reddit-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "subreddit": "",
-  "url_type": "search",
-  "n": 3,
-  "k": 1,
-  "custom_url": "",
-  "time_filter": "all",
-  "search_query": "gemma 3n reviews",
-  "sort_type": "relevance"
+  "subreddit": "", // Subreddit to fetch content from (use if url_type is not 'search').
+  "url_type": "search", // 'search' for phrase search; "url" for url, otherwise, use 'hot', 'top', 'best', etc.
+  "n": 3, // Number of posts to fetch.
+  "k": 1, // Number of top comments per post.
+  "custom_url": "", // Use if you already have a specific Reddit URL.
+  "time_filter": "all", // Time range: 'all', 'today', 'week', 'month', 'year'.
+  "search_query": "gemma 3n reviews", // Search phrase (useful if url_type is 'search').
+  "sort_type": "relevance" // 'top', 'hot', 'new', 'relevance' — controls how results are sorted.
 }
 
 ```
@@ -123,22 +123,21 @@ POST `/reddit-search`
 POST `/map-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "start_location": "MG Road, Bangalore",
-  "end_location": "Lalbagh, Bangalore",
-  "pois_radius": 500,
-  "amenities": "restaurant|cafe|bar|hotel",
-  "limit": 3,
-  "task": "route_and_pois"
+  "start_location": "MG Road, Bangalore", // Starting point.
+  "end_location": "Lalbagh, Bangalore", // Destination.
+  "pois_radius": 500, // Search radius in meters for amenities.
+  "amenities": "restaurant|cafe|bar|hotel", // Amenities to search near start or end location.
+  "limit": 3, // Maximum number of results if address not found exactly.
+  "task": "route_and_pois" // Use 'location_only' for address/coordinates only, or 'route_and_pois' for routes and POIs.
 }
-
 ```
 
 OR search for any single location (open street map has api rate limit)
 
-```
+```json
 
 {
   "start_location": "MG Road, Bangalore",
@@ -160,15 +159,14 @@ OR search for any single location (open street map has api rate limit)
 POST `/git-tree-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "repobaseurl": "https://github.com/SPThole/CoexistAI/"
+  "repobaseurl": "https://github.com/SPThole/CoexistAI/" // Base URL of the repository to explore.
 }
-
 ```
 or for local repo:
-```
+```json
 
 {
 "repobaseurl": "/home/user/projects/myrepo"
@@ -178,38 +176,46 @@ or for local repo:
 
 ---
 
-### 7. Ask Questions or Search Inside GitHub/Local Code
-**Fetch, search, and analyze code in any repo.**
+## 🛠 Quick Start
 
-**Endpoint:**  
-POST `/git-search`
+### Method 1 (Less flexible but faster):
 
-**Request Example:**
-```
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/SPThole/CoexistAI.git coexistai
+   cd coexistai
+   ```
 
-{
-"repobaseurl": "https://github.com/google-deepmind/gemma",
-"parttoresearch": "gemma/research/t5gemma/t5gemma.py",
-"query": "explain t5gemma",
-"type": "file"
-}
+2. **Run the setup script:**
+   - For macOS or Linux with zsh:
+     ```sh
+     zsh quick_setup.sh
+     ```
+   - For Linux with bash:
+     ```sh
+     bash quick_setup.sh
+     ```
 
-```
-or:
-```
+   > The script will:
+   > - Pull the SearxNG Docker image
+   > - Create and activate a Python virtual environment
+   > - [**USER ACTION NEEDED**]Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
+   > - Start the SearxNG Docker container
+   > - Install Python dependencies
+   > - Start the FastAPI and MCP server, BOTH.
 
-{
-"repobaseurl": "https://github.com/openai",
-"parttoresearch": "openai-cookbook/examples/mcp",
-"query": "Write a medium blog, for beginners",
-"type": "folder"
-}
+3. **That’s it!**  
+   The FastAPI and MCP server will start automatically and you’re ready to go.
 
-```
+**Note:**  
+- Make sure Docker, Python 3, and pip are installed on your system.  
+- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
+- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
 
----
 
-### 🧑‍💻 Integrate coexistai as an MCP Server (LM Studio, Cursor, etc.)
+Let me know if you want further formatting tweaks or more sections!
+
+## 🧑‍💻 Integrate coexistai as an MCP Server (LM Studio, Cursor, etc.)
 
 Starting LM Studio 0.3.17, LM Studio acts as an Model Context Protocol (MCP) Host. This means you can connect MCP servers to the app and make them available to your models. 
 
@@ -252,42 +258,3 @@ For fastest, highest-quality local LLM results, I have personally liked followin
 **unsloth/Qwen3-8B-GGUF**
 
 ---
-
-## 🛠 Quick Start
-
-### METHOD 1 (Less flexible but faster):
-
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/SPThole/CoexistAI.git coexistai
-   cd coexistai
-   ```
-
-2. **Run the setup script:**
-   - For macOS or Linux with zsh:
-     ```sh
-     zsh quick_setup.sh
-     ```
-   - For Linux with bash:
-     ```sh
-     bash quick_setup.sh
-     ```
-
-   > The script will:
-   > - Pull the SearxNG Docker image
-   > - Create and activate a Python virtual environment
-   > - Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
-   > - Start the SearxNG Docker container
-   > - Install Python dependencies
-   > - Start the FastAPI and MCP server, BOTH.
-
-3. **That’s it!**  
-   The FastAPI and MCP server will start automatically and you’re ready to go.
-
-**Note:**  
-- Make sure Docker, Python 3, and pip are installed on your system.  
-- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
-- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
-
-
-Let me know if you want further formatting tweaks or more sections!
