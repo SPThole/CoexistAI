@@ -226,7 +226,7 @@ POST `/reddit-search`
 
 {
   "subreddit": "", // Subreddit to fetch content from (use if url_type is not 'search').
-  "url_type": "search", // 'search' for phrase search; otherwise, use 'hot', 'top', 'best', etc.
+  "url_type": "search", // 'search' for phrase search; "url" for url, otherwise, use 'hot', 'top', 'best', etc.
   "n": 3, // Number of posts to fetch.
   "k": 1, // Number of top comments per post.
   "custom_url": "", // Use if you already have a specific Reddit URL.
