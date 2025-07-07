@@ -152,14 +152,13 @@ POST `/web-search`
 
 **Request Example:**
 ```json
-
 {
-  "query": "Top news of today worldwide", /* Query you want to ask, if you ask to summarise with url, it will summarise full page */
-  "rerank": true, /* Whether you want reranking or not, preferable for better results*/
-  "num_results": 2,/*  How many top results per subquery to explore, more --> more tokens --> slow and/or costly, Generally 2 is more than sufficient*/
-  "local_mode": false, /*  If you want to explore local documents (currently only pdf is supported)*/
-  "split": true, /* If you want full pages as input to LLMs split=False, split=False causes slower response and/or more cost*/
-  "document_paths": [] /*  if local mode is set to True then, add list of list of document paths eg. [["documents/1706.03762v7.pdf"]]*/
+  "query": "Top news of today worldwide", // Query you want to ask; if you provide a URL and ask to summarise, it will summarize the full page.
+  "rerank": true, // Set to true for better result ranking.
+  "num_results": 2, // Number of top results per subquery to explore (higher values = more tokens, slower/more costly).
+  "local_mode": false, // Set to true to explore local documents (currently, only PDF supported).
+  "split": true, // Set to false if you want full pages as input to LLMs; false may cause slower/more costly response.
+  "document_paths": [] // If local_mode is true, add a list of lists of document paths, e.g., [["documents/1706.03762v7.pdf"]]
 }
 
 ```
@@ -173,9 +172,8 @@ or QA/sumamrise local documents
   "num_results": 3,
   "local_mode": true,
   "split": true,
-  "document_paths": [["documents/1706.03762v7.pdf"]] # has to be list of list
+  "document_paths": [["documents/1706.03762v7.pdf"]] // Must be a list of lists.
 }
-
 ```
 
 ---
@@ -190,9 +188,9 @@ POST `/web-summarize`
 ```json
 
 {
-  "query": "Write a short blog on the model",/* How you want to make use of the content of the page, this could be either question or instruction */
-  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF",/* webpage from which content needs to be fetched*/
-  "local_mode": false/*if local document*/
+  "query": "Write a short blog on the model", // Instruction or question for the fetched page content.
+  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF", // Webpage to fetch content from.
+  "local_mode": false // Set to true if summarizing a local document.
 }
 
 ```
@@ -209,9 +207,9 @@ POST `/youtube-search`
 ```json
 
 {
-  "query": "switzerland itinerary",/* Query that needs to be searched on youtube to find youtube videos, if url it directly uses that url to fetch the content url should be in form of: https://www.youtube.com/watch?videoID*/
-  "prompt": "I want to plan my switzerland trip",/*How you want to use the fetched content, can be question or instruction*/
-  "n": 2 /* top n searches to summarise (works only if query is not url) */
+  "query": "switzerland itinerary", // Query to search on YouTube; if a URL is provided, it fetches content from that URL. url should be in format: https://www.youtube.com/watch?v=videoID
+  "prompt": "I want to plan my Switzerland trip", // Instruction or question for using the fetched content.
+  "n": 2 // Number of top search results to summarize (only works if query is not a URL).
 }
 ```
 
@@ -227,14 +225,14 @@ POST `/reddit-search`
 ```json
 
 {
-  "subreddit": "", /*subreddit from where the content needs to fetched from use only if url_type is other than search*/
-  "url_type": "search",/*url_type= search if specific phrase needs to be search across the reddit, else keep it either hot,top,best etc (explainer: https://www.reddit.com/r/explainlikeimfive/comments/1u0q4s/eli5_difference_between_best_hot_and_top_on_reddit/)*/
-  "n": 3,/* number of posts to be fetched according to url_type*/
-  "k": 1,/*for each of n post how many top comments to be fetched*/
-  "custom_url": "",/*if you already have url to be used*/
-  "time_filter": "all",/*all,today,week,month,year*/
-  "search_query": "gemma 3n reviews",/*search phrase if url_type is search*/
-  "sort_type": "relevance"/*top,hot,new,relevance - logic which governs which top k search results will be picked up*/
+  "subreddit": "", // Subreddit to fetch content from (use if url_type is not 'search').
+  "url_type": "search", // 'search' for phrase search; otherwise, use 'hot', 'top', 'best', etc.
+  "n": 3, // Number of posts to fetch.
+  "k": 1, // Number of top comments per post.
+  "custom_url": "", // Use if you already have a specific Reddit URL.
+  "time_filter": "all", // Time range: 'all', 'today', 'week', 'month', 'year'.
+  "search_query": "gemma 3n reviews", // Search phrase (useful if url_type is 'search').
+  "sort_type": "relevance" // 'top', 'hot', 'new', 'relevance' — controls how results are sorted.
 }
 
 ```
@@ -251,14 +249,13 @@ POST `/map-search`
 ```json
 
 {
-  "start_location": "MG Road, Bangalore", /* start location */
-  "end_location": "Lalbagh, Bangalore",/* end location */
-  "pois_radius": 500,/* in how much meter to search the amenities from  */
-  "amenities": "restaurant|cafe|bar|hotel",/* amenities to search around either start or end locations */
-  "limit": 3,/*how many results to see if the location addresses is not exactly found in database*/
-  "task": "route_and_pois"/* either location_only if just address and lattitude or longitude of the start or/and end location is needed, else if route need then route_and_pois */
+  "start_location": "MG Road, Bangalore", // Starting point.
+  "end_location": "Lalbagh, Bangalore", // Destination.
+  "pois_radius": 500, // Search radius in meters for amenities.
+  "amenities": "restaurant|cafe|bar|hotel", // Amenities to search near start or end location.
+  "limit": 3, // Maximum number of results if address not found exactly.
+  "task": "route_and_pois" // Use 'location_only' for address/coordinates only, or 'route_and_pois' for routes and POIs.
 }
-
 ```
 
 OR search for any single location (open street map has api rate limit)
@@ -288,9 +285,8 @@ POST `/git-tree-search`
 ```json
 
 {
-  "repobaseurl": "https://github.com/SPThole/CoexistAI/"/*repo base url which needs to be explored*/
+  "repobaseurl": "https://github.com/SPThole/CoexistAI/" // Base URL of the repository to explore.
 }
-
 ```
 or for local repo:
 ```json
@@ -313,12 +309,11 @@ POST `/git-search`
 ```json
 
 {
-"repobaseurl": "https://github.com/google-deepmind/gemma",/*repo base url which needs to be explored*/
-"parttoresearch": "research/t5gemma/t5gemma.py",/*folder or file relative to base url*/
-"query": "explain t5gemma",/*instruction or Question to be answered from file, folder of interest*/
-"type": "file"/*either pointing towards file or folder*/
+  "repobaseurl": "https://github.com/google-deepmind/gemma", // Base URL of the repository.
+  "parttoresearch": "research/t5gemma/t5gemma.py", // Folder or file path relative to the base URL.
+  "query": "explain t5gemma", // Instruction or question to answer from the file/folder.
+  "type": "file" // Either 'file' or 'folder'.
 }
-
 ```
 or:
 ```json
