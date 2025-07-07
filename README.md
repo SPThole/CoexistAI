@@ -144,6 +144,7 @@ Update the place (default: India) in utils/config.py for personalized results
 
 ## 🔧 How to use FASTAPI/tools
 **Remove comments after // before pasting**
+Swagger UI: http://127.0.0.1:8000/docs  if you haven't changed the host and port
 
 ### 1. Web Search
 **Search the web, summarize, and get actionable answers—automatically.**
