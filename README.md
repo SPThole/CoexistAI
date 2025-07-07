@@ -1,6 +1,6 @@
 # CoexistAI
 
-CoexistAI is a modular, developer-friendly research assistant framework built on FastAPI and LangChain. It enables you to build, search, summarize, and automate research workflows using LLMs, web search, Reddit, YouTube, and mapping tools—all with simple API calls or Python functions.
+CoexistAI is a modular, developer-friendly research assistant framework. It enables you to build, search, summarize, and automate research workflows using LLMs, web search, Reddit, YouTube, git and mapping tools—all with simple API calls or Python functions.
 
 <p align="center">
   <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
@@ -8,30 +8,31 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
 
 ## New Updates: Read More about updates [Here](README_MCP.md)
 
-- **Smarter, cheaper prompts:** Built-in guardrails help you save API costs with smarter prompt handling, especially for paid LLMs. Max documents limits of summarization.
 - **Direct location search:** You can now search for any place, not just find routes!
-- **Advanced Reddit search:** Use your own phrases; results ranked better with BM25 for sharper discovery.
-- **YouTube power-up:** Search and summarize YouTube using your own search or video URLs and even add a prompt for custom responses.
+- **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
+- **YouTube power-up:** Search and summarize YouTube using your own search phrases or video URLs and even add a prompt for custom responses.
 - **Sharper web search:** More focused and actionable results than ever before.
-- **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! (See Guide Below)
-- **GitHub & local repo explorer:** Explore directory trees or ask questions about code—works with both GitHub and local repos!
+- **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! [See Guide](README_MCP.md)
+- **GitHub & local repo explorer:** Explore ask questions about codebases - works with both GitHub and local repos!
 
 
 ## 🚀 Features
 
-- **Web Search API**: Query the web, summarize results, and extract context using LLMs.
-- **Reddit Summarizer**: Fetch and summarize top posts and comments from any subreddit.
-- **YouTube Transcript Summarizer**: Summarize YouTube videos by extracting transcripts.
-- **Map & Route Generation**: Generate maps and routes with points of interest.
-- **Pluggable LLMs**: Use Google Gemini, OpenAI, Ollama, and more.
+- **Web Explorer**: Query the web, summarize results, and extract context using LLMs.
+- **Reddit Explorer**: Fetch and summarize reddit via search phrase or subreddit focused queries
+- **YouTube Transcript Explorer**: Search youtube with search phrases and summarise/QA any video
+- **Map Explorer**: Generate maps, explore routes, locations with points of interest like hotels, cafes near given locations.
+- **Github Explorer**: Explore/summarise/explain/QA any github or even local git codebases
+- **Pluggable LLMs and Embedders**: Use any LLMs Google Gemini, OpenAI, Ollama, and any embedders
 - **Async & Parallel**: Fast, scalable, and robust asynchronous execution.
 - **Notebook & API Ready**: Use as a Python library or via a FAST API.
+- **MCP ready**: Spins up the MCP server on the fly along with FAST API server
 
 ---
 
 ## 🛠️ Installation
 
-### METHOD 1 (Less flexible but faster):
+### Method 1 (Less flexible but faster):
 
 1. **Clone the repository:**
    ```sh
@@ -52,13 +53,13 @@ CoexistAI is a modular, developer-friendly research assistant framework built on
    > The script will:
    > - Pull the SearxNG Docker image
    > - Create and activate a Python virtual environment
-   > - Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
+   > - **USER ACTION NEEDED** Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
    > - Start the SearxNG Docker container
    > - Install Python dependencies
    > - Start the FastAPI server
 
 3. **That’s it!**  
-   The FastAPI server will start automatically and you’re ready to go.
+   The FastAPI and MCP server will start automatically and you’re ready to go.
 
 **Note:**  
 - Make sure Docker, Python 3, and pip are installed on your system.  
@@ -150,22 +151,22 @@ Update the place (default: India) in utils/config.py for personalized results
 POST `/web-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "query": "Top news of today worldwide",
-  "rerank": true,
-  "num_results": 3,
-  "local_mode": false,
-  "split": true,
-  "document_paths": []
+  "query": "Top news of today worldwide", /* Query you want to ask, if you ask to summarise with url, it will summarise full page */
+  "rerank": true, /* Whether you want reranking or not, preferable for better results*/
+  "num_results": 2,/*  How many top results per subquery to explore, more --> more tokens --> slow and/or costly, Generally 2 is more than sufficient*/
+  "local_mode": false, /*  If you want to explore local documents (currently only pdf is supported)*/
+  "split": true, /* If you want full pages as input to LLMs split=False, split=False causes slower response and/or more cost*/
+  "document_paths": [] /*  if local mode is set to True then, add list of list of document paths eg. [["documents/1706.03762v7.pdf"]]*/
 }
 
 ```
 
 or QA/sumamrise local documents 
 
-```
+```json
 {
   "query": "Summarise this research paper",
   "rerank": true,
@@ -186,12 +187,12 @@ or QA/sumamrise local documents
 POST `/web-summarize`
 
 **Request Example:**
-```
+```json
 
 {
-  "query": "Write a short blog on the model",
-  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF",
-  "local_mode": false
+  "query": "Write a short blog on the model",/* How you want to make use of the content of the page, this could be either question or instruction */
+  "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF",/* webpage from which content needs to be fetched*/
+  "local_mode": false/*if local document*/
 }
 
 ```
@@ -205,12 +206,12 @@ POST `/web-summarize`
 POST `/youtube-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "query": "switzerland itinerary",
-  "prompt": "I want to plan my switzerland trip",
-  "n": 2 # top n searches to summarise 
+  "query": "switzerland itinerary",/* Query that needs to be searched on youtube to find youtube videos, if url it directly uses that url to fetch the content url should be in form of: https://www.youtube.com/watch?videoID*/
+  "prompt": "I want to plan my switzerland trip",/*How you want to use the fetched content, can be question or instruction*/
+  "n": 2 /* top n searches to summarise (works only if query is not url) */
 }
 ```
 
@@ -223,17 +224,17 @@ POST `/youtube-search`
 POST `/reddit-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "subreddit": "",
-  "url_type": "search",
-  "n": 3,
-  "k": 1,
-  "custom_url": "",
-  "time_filter": "all",
-  "search_query": "gemma 3n reviews",
-  "sort_type": "relevance"
+  "subreddit": "", /*subreddit from where the content needs to fetched from use only if url_type is other than search*/
+  "url_type": "search",/*url_type= search if specific phrase needs to be search across the reddit, else keep it either hot,top,best etc (explainer: https://www.reddit.com/r/explainlikeimfive/comments/1u0q4s/eli5_difference_between_best_hot_and_top_on_reddit/)*/
+  "n": 3,/* number of posts to be fetched according to url_type*/
+  "k": 1,/*for each of n post how many top comments to be fetched*/
+  "custom_url": "",/*if you already have url to be used*/
+  "time_filter": "all",/*all,today,week,month,year*/
+  "search_query": "gemma 3n reviews",/*search phrase if url_type is search*/
+  "sort_type": "relevance"/*top,hot,new,relevance - logic which governs which top k search results will be picked up*/
 }
 
 ```
@@ -247,22 +248,22 @@ POST `/reddit-search`
 POST `/map-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "start_location": "MG Road, Bangalore",
-  "end_location": "Lalbagh, Bangalore",
-  "pois_radius": 500,
-  "amenities": "restaurant|cafe|bar|hotel",
-  "limit": 3,
-  "task": "route_and_pois"
+  "start_location": "MG Road, Bangalore", /* start location */
+  "end_location": "Lalbagh, Bangalore",/* end location */
+  "pois_radius": 500,/* in how much meter to search the amenities from  */
+  "amenities": "restaurant|cafe|bar|hotel",/* amenities to search around either start or end locations */
+  "limit": 3,/*how many results to see if the location addresses is not exactly found in database*/
+  "task": "route_and_pois"/* either location_only if just address and lattitude or longitude of the start or/and end location is needed, else if route need then route_and_pois */
 }
 
 ```
 
 OR search for any single location (open street map has api rate limit)
 
-```
+```json
 
 {
   "start_location": "MG Road, Bangalore",
@@ -284,15 +285,15 @@ OR search for any single location (open street map has api rate limit)
 POST `/git-tree-search`
 
 **Request Example:**
-```
+```json
 
 {
-  "repobaseurl": "https://github.com/SPThole/CoexistAI/"
+  "repobaseurl": "https://github.com/SPThole/CoexistAI/"/*repo base url which needs to be explored*/
 }
 
 ```
 or for local repo:
-```
+```json
 
 {
 "repobaseurl": "/home/user/projects/myrepo"
@@ -309,18 +310,18 @@ or for local repo:
 POST `/git-search`
 
 **Request Example:**
-```
+```json
 
 {
-"repobaseurl": "https://github.com/google-deepmind/gemma",
-"parttoresearch": "gemma/research/t5gemma/t5gemma.py",
-"query": "explain t5gemma",
-"type": "file"
+"repobaseurl": "https://github.com/google-deepmind/gemma",/*repo base url which needs to be explored*/
+"parttoresearch": "research/t5gemma/t5gemma.py",/*folder or file relative to base url*/
+"query": "explain t5gemma",/*instruction or Question to be answered from file, folder of interest*/
+"type": "file"/*either pointing towards file or folder*/
 }
 
 ```
 or:
-```
+```json
 
 {
 "repobaseurl": "https://github.com/openai",
