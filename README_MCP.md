@@ -1,4 +1,4 @@
-# CoexistAi v0.0.2 
+# CoexistAI v0.0.2 
 
 <p align="center">
   <img src="artifacts/v002mcplogo.jpeg" alt="CoexistAI MCP Logo" width="200"/>
