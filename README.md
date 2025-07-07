@@ -6,7 +6,7 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
   <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
 </p>
 
-## New Updates: Read More about updates [Here](README_MCP.md)
+## 🔔 New Updates: Read More about updates [Here](README_MCP.md)
 
 - **Direct location search:** You can now search for any place, not just find routes!
 - **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
@@ -68,7 +68,7 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
 
 ---
 
-## Method 2: Tedious but gives flexibility
+### Method 2: Tedious but gives flexibility
 
 1. Clone repo
 ```bash
@@ -84,7 +84,7 @@ pip install -r requirements.txt
 
 CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng) instance for privacy-friendly, customizable web search aggregation.
 
-### Install SearxNG (Docker recommended)
+#### Install SearxNG (Docker recommended)
 
 
 ```bash
@@ -112,7 +112,7 @@ docker run --rm \
 
 5.  Enabling API
 
-### Start the FastAPI server
+#### Start the FastAPI server
 
 ```bash
 uvicorn app:app --reload
@@ -142,7 +142,7 @@ export YOUR_LLM_API_KEY=your-api-key-here
 
 Update the place (default: India) in utils/config.py for personalized results
 
-### How to use FASTAPI/tools
+## 🔧 How to use FASTAPI/tools
 **Remove comments after // before pasting**
 
 ### 1. Web Search
@@ -421,6 +421,7 @@ content = await git_specific_content("https://github.com/SPThole/CoexistAI","REA
 Pull requests, issues, and feature suggestions are welcome! Please open an issue or PR on GitHub.
 
 ---
+
 ## ⚖️ Legality & Responsible Use
 
 **Non-Commercial Use Only:** CoexistAI is intended strictly for research, prototyping, and educational purposes. Commercial or production use of this project or its outputs is **not permitted**.
