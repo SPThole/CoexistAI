@@ -4,7 +4,6 @@
   <img src="artifacts/v002mcplogo.jpeg" alt="CoexistAI MCP Logo" width="200"/>
 </p>
 
-
 ## 🚀 What's New in v2
 
 - **Direct location search:** You can now search for any place, not just find routes!
@@ -15,6 +14,42 @@
 - **GitHub & local repo explorer:** Explore ask questions about codebases - works with both GitHub and local repos!
 
 ---
+
+## 🛠 Quick Start
+
+### Method 1 (Less flexible but faster):
+
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/SPThole/CoexistAI.git coexistai
+   cd coexistai
+   ```
+
+2. **Run the setup script:**
+   - For macOS or Linux with zsh:
+     ```sh
+     zsh quick_setup.sh
+     ```
+   - For Linux with bash:
+     ```sh
+     bash quick_setup.sh
+     ```
+
+   > The script will:
+   > - Pull the SearxNG Docker image
+   > - Create and activate a Python virtual environment
+   > - [**USER ACTION NEEDED**]Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
+   > - Start the SearxNG Docker container
+   > - Install Python dependencies
+   > - Start the FastAPI and MCP server, BOTH.
+
+3. **That’s it!**  
+   The FastAPI and MCP server will start automatically and you’re ready to go.
+
+**Note:**  
+- Make sure Docker, Python 3, and pip are installed on your system.  
+- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
+- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
 
 ## 🔍 What Can You Do? (API Highlights & Examples)
 
@@ -176,45 +211,6 @@ or for local repo:
 
 ---
 
-## 🛠 Quick Start
-
-### Method 1 (Less flexible but faster):
-
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/SPThole/CoexistAI.git coexistai
-   cd coexistai
-   ```
-
-2. **Run the setup script:**
-   - For macOS or Linux with zsh:
-     ```sh
-     zsh quick_setup.sh
-     ```
-   - For Linux with bash:
-     ```sh
-     bash quick_setup.sh
-     ```
-
-   > The script will:
-   > - Pull the SearxNG Docker image
-   > - Create and activate a Python virtual environment
-   > - [**USER ACTION NEEDED**]Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
-   > - Start the SearxNG Docker container
-   > - Install Python dependencies
-   > - Start the FastAPI and MCP server, BOTH.
-
-3. **That’s it!**  
-   The FastAPI and MCP server will start automatically and you’re ready to go.
-
-**Note:**  
-- Make sure Docker, Python 3, and pip are installed on your system.  
-- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
-- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
-
-
-Let me know if you want further formatting tweaks or more sections!
-
 ## 🧑‍💻 Integrate coexistai as an MCP Server (LM Studio, Cursor, etc.)
 
 Starting LM Studio 0.3.17, LM Studio acts as an Model Context Protocol (MCP) Host. This means you can connect MCP servers to the app and make them available to your models. 
@@ -250,6 +246,7 @@ You can now run coexistai as an MCP server—**plug it into LM Studio** or any o
 
 **Security note:** Only use MCP servers you trust—servers can access files/network.
 
+3. Use [system prompt](system_prompt.py) as context (system prompt) in lmstudio
 ---
 
 ## 🏆 Best Local Model
