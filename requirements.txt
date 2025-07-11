@@ -35,3 +35,4 @@ sentence-transformers
 youtube_search
 fastapi-mcp
 gitingest
+langchain-groq
