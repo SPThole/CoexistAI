@@ -8,6 +8,33 @@ from utils.map import *
 from utils.git_utils import *
 import subprocess
 from fastapi_mcp import FastApiMCP
+import os
+from model_config import *
+
+
+# Use config values for model and embedding paths
+llm_model_name = model_config.get("llm_model_name", 'google/gemma-3-12b')
+llm_type = model_config.get("llm_type", 'local')
+llm_tools = model_config.get("llm_tools",None)
+llm_base_url = model_config.get("llm_base_url", 'http://127.0.0.1:1234/v1')
+
+if llm_type=='google':
+    llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1, 
+                                                'max_tokens': None, 
+                                                'timeout': None, 
+                                                'api_key':api_key,
+                                                'generation_config':{"response_mime_type": "application/json"},
+                                                'max_retries': 2})
+else:
+    llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1, 
+                                                'max_tokens': None, 
+                                                'timeout': None, 
+                                                'api_key':api_key,
+                                                'max_retries': 2})
+    
+embedding_model_name = model_config.get("embedding_model_name", "models/embedding-001")
+embed_mode = model_config.get("embed_mode", "gemini")
+cross_encoder_name = model_config.get("cross_encoder_name", "BAAI/bge-reranker-base")
 
 
 if not is_searxng_running():
@@ -26,17 +53,22 @@ else:
 if not os.environ['GOOGLE_API_KEY']: # If its already set via export, it won't override
     os.environ['GOOGLE_API_KEY'] = "YOUR_API_KEY"
 
-llm = get_generative_model(model_name='gemini-2.0-flash',
-                    type='google',
-                    _tools=None,
-                    kwargs={'temperature': 0.1, 'max_tokens': None, 'timeout': None, 'max_retries': 2, 
-                            'api_key': os.environ['GOOGLE_API_KEY']})
 
+llm = get_generative_model(
+    model_name=llm_model_name,
+    type=llm_type,
+    base_url=llm_base_url,
+    _tools=None,
+    kwargs=llm_kwargs
+)
+
+hf_embeddings, cross_encoder = load_model(embedding_model_name, 
+                                          _embed_mode=embed_mode,
+                                          cross_encoder_name=cross_encoder_name)
 text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
-hf_embeddings, cross_encoder = load_model("models/embedding-001",_embed_mode='gemini')
+
 searcher = SearchWeb(30)
 date, day = get_local_data()
-
 app = FastAPI(title='coexistai')
 
 @app.get('/')
