@@ -101,7 +101,6 @@ def fix_json(json_str):
     return json_str
 
 
-# @st.cache_data
 def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/bge-reranker-base"):
     """
     Loads the appropriate embeddings and cross-encoder model based on the embedding mode.
@@ -123,6 +122,32 @@ def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/
     hf_embeddings = None
     if _embed_mode == 'infinity_emb':
         infinity_api_url = "http://0.0.0.0:7997"
+        # Check if the Infinity API server is running
+        try:
+            response = requests.get(f"{infinity_api_url}/health", timeout=2)
+            if response.status_code != 200:
+                raise Exception("Infinity API health check failed")
+        except Exception:
+            logger.info("Infinity API not running. Attempting to start it...")
+            try:
+                subprocess.Popen(
+                    ["infinity_emb", "v2", "--model-id", model_name],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                # Wait a few seconds for the server to start
+                time.sleep(10)
+                # Check again if the Infinity API server is running after attempting to start it
+                try:
+                    response = requests.get(f"{infinity_api_url}/health", timeout=2)
+                    if response.status_code != 200:
+                        raise Exception("Infinity API health check failed after start attempt")
+                except Exception:
+                    logger.error("Infinity API still not running after start attempt.")
+                    raise RuntimeError("Infinity API failed to start or is not reachable at http://0.0.0.0:7997")
+            except Exception as e:
+                logger.error(f"Failed to start Infinity API: {e}")
+                raise RuntimeError(f"Failed to start Infinity API: {e}")
         try:
             hf_embeddings = InfinityEmbeddings(
                 model=model_name, infinity_api_url=infinity_api_url
@@ -226,8 +251,14 @@ def get_generative_model(model_name='gemini-1.5-flash',
         llm = ChatOpenAI(
             base_url=base_url,
             model=model_name,
-            api_key='dummy',
             **kwargs
+        )
+    elif type == 'groq':
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(
+            model=model_name,
+            **kwargs
+            # other params...
         )
     elif type == 'openai':
         llm = ChatOpenAI(
