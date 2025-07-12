@@ -6,8 +6,10 @@ docker pull searxng/searxng
 
 # (Optional) Create and activate a Python virtual environment
 echo "Creating and activating Python virtual environment..."
-python3 -m venv coexistaienv
+python3.13 -m venv coexistaienv
 source coexistaienv/bin/activate
+
+pip install markitdown[all]
 
 echo "Setting GOOGLE_API_KEY (edit this script to use your real key)"
 export GOOGLE_API_KEY=REPLACE_YOUR_API_KEY_HERE_WITHOUT_QUOTES_AND_SPACES
