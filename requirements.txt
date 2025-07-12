@@ -24,7 +24,6 @@ streamlit
 rich
 langchain_huggingface
 langchain_community
-youtube_transcript_api>=1.1.0
 chromadb
 pymupdf
 pymupdf4llm
@@ -36,3 +35,5 @@ youtube_search
 fastapi-mcp
 gitingest
 langchain-groq
+markitdown[all]
+youtube_transcript_api>=1.1.0
