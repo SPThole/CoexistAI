@@ -23,6 +23,9 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, TokenTextSplitt
 from markdownify import markdownify as md
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_search import YoutubeSearch
+from markitdown import MarkItDown
+from pathlib import Path
+
 
 
 import chromadb
@@ -542,8 +545,13 @@ async def query_web_response(
         return None, None, None, None, None, None, None
 
     if websearcher is None or local_mode:
+        logger.warning("Please add list of paths as input, earlier it used to be list of list")
+        all_paths=[]
+        for k in document_paths:
+            all_paths.append(get_all_paths(k))
+        logger.info(f"Total paths for '{query}': {all_paths}")
         # Only time doc is considered for different subqueries and only first is getting considered
-        search_snippets, search_results, search_results_urls = [], [], document_paths * len(search_response)
+        search_snippets, search_results, search_results_urls = [], [], all_paths * len(search_response)
         search_snippets_orig = {}
         logger.warning("No websearcher provided; using document_paths only.")
     else:
@@ -728,10 +736,19 @@ async def urls_to_docs(urls, local_mode=False, split=True):
 def youtube_transcript_response(query, task, model,n=3):
     overall_context = ''
     if "youtube.com" in query:
-        video_id = query.split("=")[1]
-        srt = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript = ' '.join([s['text'] for s in srt])
-        prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+        try:
+            md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+            result = md.convert(query)
+            prompt = result.text_content 
+        except:
+            try:
+                video_id = query.split("=")[1]
+                srt = YouTubeTranscriptApi.get_transcript(video_id)
+                transcript = ' '.join([s['text'] for s in srt])
+                prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+            except Exception as e:
+                logger.error(f"Error summarizing URL {url}: {e}")
+                return "Error generating summary."
         response = model.invoke(prompt)
         overall_context = overall_context + f"\n\nVideo: {query}\nTranscript Summary: {response}\n\n"
     else:
@@ -777,13 +794,46 @@ async def summary_of_url(query, url, model, local_mode=False):
         str: The generated summary of the content.
     """
     try:
-        docs = await urls_to_docs([url], local_mode=local_mode)
+        urls = get_all_paths(url)
+        docs = []
+        for url in urls:
+            docs.extend(await urls_to_docs([url], local_mode=local_mode))
         if not docs:
             logger.warning(f"No documents found for URL: {url}")
             return "No content found to summarize."
-        text = 'source:' + str(url)  + '\n\ncontent:' + docs[0].page_content
-        summary = model.invoke(f"Summarise the following content to answer {query}:\n{text}")
+        content= ''
+        for d in docs:
+            content = content + 'source:' + url  + '\n\ncontent:' + d.page_content
+        summary = model.invoke(f"Summarise the following content to answer {query}:\n{content}")
         return summary
     except Exception as e:
         logger.error(f"Error summarizing URL {url}: {e}")
         return "Error generating summary."
+    
+
+def is_file_folder(root_path):
+    root = Path(root_path)
+    if not root.exists():
+        return "Not a valid path"
+    if root.is_file():
+        return "File"
+    elif root.is_dir():
+        return "Folder"
+    else:
+        return "Unknown"
+    
+def get_all_paths(root_path):
+    paths = []
+    type = is_file_folder(root_path)
+    if type=='Folder':
+        for dirpath, dirnames, filenames in os.walk(root_path):
+            # Add directory itself
+            paths.append(dirpath)
+            # Add all files in this directory
+            for filename in filenames:
+                paths.append(os.path.join(dirpath, filename))
+    elif type=='File':
+        paths=[root_path]
+    else:
+        paths=None
+    return paths
