@@ -4,7 +4,15 @@ import re
 import fitz
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
+from markitdown import MarkItDown
 import pymupdf4llm
+import sys
+import os
+from model_config import *
+from openai import OpenAI
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 
 from utils.utils import *
 
@@ -27,7 +35,6 @@ def clean_html(soup):
         logger.error(f"Error cleaning HTML: {e}", exc_info=True)
         return str(soup)
 
-
 def process_content(url, content_type, content):
     """
     Processes the content based on the file type (PDF or HTML). Converts PDFs to markdown and cleans HTML content 
@@ -38,7 +45,7 @@ def process_content(url, content_type, content):
         if url.endswith('.pdf') and content_type == 'internal_pdf':
             try:
                 logger.info("Processing internal PDF.")
-                markdown_content = pymupdf4llm.to_markdown(url)
+                markdown_content = f"Content from {url}\n\n" + pymupdf4llm.to_markdown(url)
             except Exception as e:
                 logger.error(f"Error processing internal PDF: {e}", exc_info=True)
                 return ""
@@ -47,7 +54,7 @@ def process_content(url, content_type, content):
                 logger.info("Processing PDF from stream.")
                 pdf_document = fitz.open(stream=content, filetype="pdf")
                 text_content = pymupdf4llm.to_markdown(pdf_document)
-                markdown_content = md(text_content)
+                markdown_content =  f"Content from {url}\n\n" + md(text_content)
             except Exception as e:
                 logger.error(f"Error processing PDF: {e}", exc_info=True)
                 return ""
@@ -60,14 +67,28 @@ def process_content(url, content_type, content):
                 markdown_content = remove_consecutive_newlines(markdown_content)
                 markdown_content = re.sub(r"\S{21,}", "", markdown_content)
             except Exception as e:
-                logger.error(f"Error processing HTML: {e}", exc_info=True)
-                return ""
+                try: 
+                    if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg']):
+                        logger.info("Converting image to markdown caption")
+                        client = OpenAI(base_url=openai_compatible[model_config['llm_type']]
+                                        ,api_key=api_key)
+                        md = MarkItDown(llm_client=client, 
+                                        llm_model=model_config['llm_model_name'],
+                                        llm_prompt='Answer in 2 sections 1. OCR output if there is any text (without losing structure) 2. What exactly is this?')
+                        result = md.convert(url)
+                        markdown_content =  f"Content from {url}\n\n" + result.text_content
+                    else:
+                        md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+                        markdown_content =  f"Content from {url}\n\n" + md.convert(url).text_content
+                except:
+                    logger.error(f"Error processing HTML: {e}", exc_info=True)
+                    return ""
         logger.info("Content processed successfully.")
+
         return markdown_content
     except Exception as e:
         logger.error(f"Error in process_content: {e}", exc_info=True)
         return ""
-
 
 def process_content_pdf(file):
     """
