@@ -8,6 +8,7 @@ from utils.map import *
 from utils.git_utils import *
 import subprocess
 from fastapi_mcp import FastApiMCP
+import json
 import os
 from model_config import *
 
@@ -65,10 +66,13 @@ llm = get_generative_model(
 hf_embeddings, cross_encoder = load_model(embedding_model_name, 
                                           _embed_mode=embed_mode,
                                           cross_encoder_name=cross_encoder_name)
+
 text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 
 searcher = SearchWeb(30)
 date, day = get_local_data()
+
+
 app = FastAPI(title='coexistai')
 
 @app.get('/')
@@ -81,7 +85,7 @@ class WebSearchRequest(BaseModel):
     num_results: int = 3
     local_mode: bool = False
     split: bool = True
-    document_paths: list[list[str]] = []  # List of paths for local documents
+    document_paths: list[str] = []  # List of paths for local documents
 
 class YouTubeSearchRequest(BaseModel):
     query: str
@@ -147,7 +151,7 @@ async def get_git_search(request:GitSearchRequest):
                         or the local path to the root of the repository.
         part (str): The path inside the repository you wish to access (e.g., 'basefolder/subfolder'). use get_git_tree for getting specific part if needed
         query (str): Users query
-        type (str): "folder" or "file"
+        type (str): "Folder" or "file"
     Returns:
         str: Response of the users query based on the content fetched
     """
@@ -161,6 +165,7 @@ Fetched Content: {content}
         prompt
     )
    return result.content
+   
 
 @app.post('/web-search',operation_id="get_web_search")
 async def websearch(request: WebSearchRequest):
@@ -171,7 +176,7 @@ async def websearch(request: WebSearchRequest):
         query (str): The input query.
         rerank (bool): Whether to rerank results.
         num_results (int, optional): Number of search results to retrieve. Defaults to 3. (can take values from 1-5)
-        document_paths (list of list, optional): List of list of paths for local documents. Defaults to empty list. for an example [[doc_1_path, doc_2_path], [doc_3_path]]. if different tasks are related to different documents
+        document_paths (list of str, optional): List of paths for local documents/folders. Defaults to empty list. for an example [path1,path2,path3]. if different tasks are related to different documents
         local_mode (bool, optional): Whether to process local documents. Defaults to False.
         split (bool, optional): Whether to split documents into chunks. Defaults to True.
 
@@ -285,7 +290,6 @@ async def map_search(request: MapSearchRequest):
                         task=request.task,
                         )
     return result
-
 
 mcp = FastApiMCP(app,include_operations=['get_web_search',
                                          'get_web_summarize',
