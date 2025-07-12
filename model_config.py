@@ -59,3 +59,10 @@ model_config = {
     # Name of the cross-encoder model for reranking, typically a HuggingFace model.
     "cross_encoder_name": "BAAI/bge-reranker-base"
 }
+
+openai_compatible = {
+    'google': "https://generativelanguage.googleapis.com/v1beta/openai/",
+    'local': "http://127.0.0.1:1234/v1",
+    'grok': 'https://api.groq.com/openai/v1'
+}
+
