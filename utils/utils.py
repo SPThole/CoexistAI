@@ -100,7 +100,6 @@ def fix_json(json_str):
     # Optionally, add more fixes as needed
     return json_str
 
-
 def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/bge-reranker-base"):
     """
     Loads the appropriate embeddings and cross-encoder model based on the embedding mode.
@@ -181,7 +180,6 @@ def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/
         logger.error("Failed to initialize embeddings.")
     return hf_embeddings, cross_encoder
 
-
 def stream_text_1(placeholder, output):
     """
     Similar to `stream_text`, but streams text line-by-line with a faster streaming speed.
@@ -221,7 +219,6 @@ def get_local_data():
     day = datetime.datetime.today().weekday()
     day = days[day]
     return date, day
-
 
 
 def get_generative_model(model_name='gemini-1.5-flash',
