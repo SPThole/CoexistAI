@@ -55,7 +55,7 @@ def query_agent(query, llm, date, day):
             description= "Whether the query will hit a page with structured data like tables, codes, list, indexes, where full page full page would be needed to access to answer the query OR is it the case chunking page content will leave give only half of required information for a given query"
         )
         is_covered_urls: bool = Field(  
-            description="Whether the query is asking something that is related to youtube or reddit."
+            description="If user is asking to answer explicitly using youtube or reddit"
         )
 
     logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def query_agent(query, llm, date, day):
             is_summary = True
         is_covered_urls = response.is_covered_urls
         response = response.subqueries
-        logger.info(f"Summary:{is_summary},subquery:{response}")
+        logger.info(f"Summary:{is_summary},subquery:{response}, iscoverd:{is_covered_urls}")
     except Exception as e:
         logger.warning(f"Structured output failed: {e}. Falling back to prompt-based extraction.")
         try:
@@ -189,7 +189,9 @@ def summarizer(query, docs, llm, batch,max_docs=30):
     if not docs or not isinstance(docs, list):
         logger.warning("No documents provided or docs is not a list.")
         return []
-
+    logger.info(f"Deduping docs: {len(docs)}")
+    docs = list(set([f'source:{k.metadata["source"]}\ncontent:{k.page_content}' for k in docs]))
+    logger.info(f"Arrived Len of Docs: {len(docs)}")
     len_docs = len(docs)
     if len_docs == 1:
         logger.info("Only one document provided, summarizing it.")
@@ -198,10 +200,10 @@ def summarizer(query, docs, llm, batch,max_docs=30):
             prompt = prompts['summary_generation'].format(comb_docs=comb_docs, query=query)
             response = llm.invoke(prompt).content
             summary_text = getattr(response, 'text', None) or getattr(response, 'content', None) or str(response)
-            return [summary_text.strip()] if summary_text else []
+            return '\n'.join([summary_text.strip()] if summary_text else [])
         except Exception as e:
             logger.error(f"Summarization failed for single document: {e}")
-            return []
+            return 'SUMMARIZATION FAILED'
 
     print(f"Summarising using {len_docs} documents")
     if len_docs > max_docs:
@@ -232,7 +234,7 @@ def summarizer(query, docs, llm, batch,max_docs=30):
 
         if not summaries:
             logger.error("No summaries generated in this iteration, aborting.")
-            return []
+            return 'SUMMARIZATION FAILED'
 
         len_docs = len(summaries)
         docs = summaries

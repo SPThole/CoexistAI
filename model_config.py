@@ -63,6 +63,7 @@ model_config = {
 openai_compatible = {
     'google': "https://generativelanguage.googleapis.com/v1beta/openai/",
     'local': "http://127.0.0.1:1234/v1",
-    'grok': 'https://api.groq.com/openai/v1'
+    'grok': 'https://api.groq.com/openai/v1',
+    'openai':'https://api.openai.com/v1'
 }
 

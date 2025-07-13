@@ -538,6 +538,8 @@ async def query_web_response(
     """
     try:
         search_response,is_summary,is_covered_urls = query_agent(query, model, date, day)
+        if is_summary:
+            split=False
         search_response = [text.replace('"', '') for text in search_response]
         logger.info(f"Search phrases for query '{query}': {search_response}")
     except Exception as e:
@@ -556,6 +558,14 @@ async def query_web_response(
         logger.warning("No websearcher provided; using document_paths only.")
     else:
         try:
+            extracted_urls = extract_urls_from_query(query)
+            if len(extracted_urls)>0:
+                for u in extracted_urls:
+                    if ('reddit' in u) or ('youtube' in u):
+                        is_covered_urls = True
+                    else:
+                        is_summary = True
+                        is_covered_urls = False
             if extract_urls_from_query(query) and not is_covered_urls:
                 logger.info(f"Extracted URLs from query '{query}': {extract_urls_from_query(query)}")
                 search_snippets_orig = []
@@ -612,7 +622,10 @@ async def query_web_response(
             response_1, sources = response_gen(text_model, query, context)
         else:
             logger.info(f"Generating summary for query '{query}' using summarizer.")
+            import pandas as pd
+            pd.DataFrame(total_docs).to_csv('temp.csv')
             response_1 = summarizer(query, total_docs, text_model, 16)
+            
             sources = ''
         logger.info(f"Response generated for query '{query}'.")
     except Exception as e:
@@ -760,10 +773,21 @@ def youtube_transcript_response(query, task, model,n=3):
             channel = k['channel']
             url = f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Found YouTube video: {title} by {channel} at {url}")
-            srt = YouTubeTranscriptApi.get_transcript(video_id)
-            transcript = ' '.join([s['text'] for s in srt])
-            prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
-            response = model.invoke(prompt)
+            try:
+                md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+                result = md.convert(url)
+                prompt = result.text_content 
+            except:
+                try:
+                    srt = YouTubeTranscriptApi.get_transcript(video_id)
+                    transcript = ' '.join([s['text'] for s in srt])
+                    prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+                except:
+                    logger.error("error with youtube video")
+            try:
+                response = model.invoke(prompt)
+            except:
+                logger.error("error with LLM")
             overall_context += f"\n\nVideo: {title} by {channel}\nURL: {url}\nTranscript Summary: {response}\n\n"
     print(f"Generated YouTube context for query '{query}': {overall_context}")
     return overall_context
@@ -813,7 +837,6 @@ async def summary_of_url(query, url, model, local_mode=False):
         logger.error(f"Error summarizing URL {url}: {e}")
         return "Error generating summary."
     
-
 def is_file_folder(root_path):
     root = Path(root_path)
     if not root.exists():
