@@ -794,8 +794,11 @@ async def summary_of_url(query, url, model, local_mode=False):
         str: The generated summary of the content.
     """
     try:
-        urls = get_all_paths(url)
         docs = []
+        if local_mode:
+            urls = get_all_paths(url)
+        else:
+            urls = [url]
         for url in urls:
             docs.extend(await urls_to_docs([url], local_mode=local_mode))
         if not docs:
