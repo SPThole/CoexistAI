@@ -69,6 +69,7 @@ def query_agent(query, llm, date, day):
             is_summary = True
         is_covered_urls = response.is_covered_urls
         response = response.subqueries
+        logger.info(f"Summary:{is_summary},subquery:{response}")
     except Exception as e:
         logger.warning(f"Structured output failed: {e}. Falling back to prompt-based extraction.")
         try:
