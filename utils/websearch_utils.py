@@ -622,11 +622,8 @@ async def query_web_response(
             response_1, sources = response_gen(text_model, query, context)
         else:
             logger.info(f"Generating summary for query '{query}' using summarizer.")
-            import pandas as pd
-            pd.DataFrame(total_docs).to_csv('temp.csv')
             response_1 = summarizer(query, total_docs, text_model, 16)
-            
-            sources = ''
+            sources = str(search_results_urls)
         logger.info(f"Response generated for query '{query}'.")
     except Exception as e:
         logger.error(f"Error generating response for query '{query}': {e}")

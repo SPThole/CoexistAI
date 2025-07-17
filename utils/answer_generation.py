@@ -172,7 +172,7 @@ def response_gen(model, query, context):
     return answer, sources
 
 
-def summarizer(query, docs, llm, batch,max_docs=30):
+def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
     """
     Summarizes a list of documents iteratively in batches using an LLM.
 
@@ -190,7 +190,8 @@ def summarizer(query, docs, llm, batch,max_docs=30):
         logger.warning("No documents provided or docs is not a list.")
         return []
     logger.info(f"Deduping docs: {len(docs)}")
-    docs = list(set([f'source:{k.metadata["source"]}\ncontent:{k.page_content}' for k in docs]))
+    logger.warning(f"Capping max words to {max_words_per_doc}")
+    docs = list(set([f'source:{k.metadata["source"]}\ncontent:{" ".join(k.page_content.split(" ")[:max_words_per_doc])}' for k in docs]))
     logger.info(f"Arrived Len of Docs: {len(docs)}")
     len_docs = len(docs)
     if len_docs == 1:
