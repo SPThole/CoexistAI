@@ -1,5 +1,6 @@
 from gitingest import ingest_async
 import os
+import aiofiles.os
 
 async def git_tree_search(url):
     """
@@ -75,3 +76,77 @@ async def git_specific_content(base_url, part,type):
         return content
     except Exception as e:
         raise Exception(f"Failed to fetch content for '{url_or_path}': {e}")
+
+async def folder_tree(
+    path, level='broad-first', prefix='', cur_depth=1, max_depth=None
+    ):
+    """
+    Async Markdown folder tree.
+
+    Args:
+        path (str): Root directory.
+        level (str):
+            - 'full': Show all folders and files, recursively, except hidden/system/cache entries.
+            - 'broad-first': Only show immediate (top-level) folders and files (no nesting).
+            - 'broad-second' or 'broad': Show top-level folders/files and their immediate child folders/files (two levels, no deeper).
+        prefix (str): Indentation (internal)
+        cur_depth (int): Current recursion depth (internal)
+        max_depth (int): Max allowed depth (internal)
+    Returns:
+        str: Markdown tree string
+    """
+    def is_visible(entry):
+        lower = entry.lower()
+        hidden = entry.startswith('.')
+        system = lower in ('desktop.ini', 'thumbs.db', '$recycle.bin', 'system volume information')
+        cache = 'cache' in lower
+        return not (hidden or system or cache)
+
+    try:
+        entries = await aiofiles.os.listdir(path)
+        entries = sorted([e for e in entries if is_visible(e)])
+    except FileNotFoundError:
+        return f"{prefix}!! [Error: Folder not found]\n"
+    except PermissionError:
+        return f"{prefix}!! [Error: Permission denied]\n"
+    except Exception as e:
+        return f"{prefix}!! [Error: {str(e)}]\n"
+
+    if max_depth is None:
+        if level == 'broad-first':
+            max_depth = 1
+        elif level in ('broad-second', 'broad'):
+            max_depth = 2
+        else:
+            max_depth = float('inf')
+
+    tree_str = ""
+
+    if level.startswith('broad'):
+        # Separate folders and files
+        folders = [e for e in entries if os.path.isdir(os.path.join(path, e))]
+        files = [e for e in entries if os.path.isfile(os.path.join(path, e))]
+        items = folders + files
+    else:
+        items = entries
+
+    for idx, entry in enumerate(items):
+        full_path = os.path.join(path, entry)
+        is_last = idx == len(items) - 1
+        connector = '└── ' if is_last else '├── '
+        tree_str += f"{prefix}{connector}{entry}\n"
+        if os.path.isdir(full_path) and not os.path.islink(full_path):
+            if cur_depth < max_depth:
+                extension = '    ' if is_last else '│   '
+                try:
+                    subtree = await folder_tree(
+                        full_path,
+                        level,
+                        prefix + extension,
+                        cur_depth=cur_depth + 1,
+                        max_depth=max_depth,
+                    )
+                    tree_str += subtree
+                except Exception as e:
+                    tree_str += f"{prefix + extension}!! [Error: {str(e)}]\n"
+    return tree_str
