@@ -100,20 +100,23 @@ def fix_json(json_str):
     # Optionally, add more fixes as needed
     return json_str
 
-def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/bge-reranker-base"):
+def load_model(model_name, 
+               _embed_mode='infinity_emb', 
+               cross_encoder_name="BAAI/bge-reranker-base",
+               kwargs=None):
     """
     Loads the appropriate embeddings and cross-encoder model based on the embedding mode.
     TODO: Validate model and handle errors for unsupported modes.
     Args:
         model_name (str): The name of the Hugging Face or Google embedding model.
-        _embed_mode (str, optional): The embedding mode ('infinity_emb', 'huggingface', 'gemini'). Defaults to 'infinity_emb'.
+        _embed_mode (str, optional): The embedding mode ('infinity_emb', 'huggingface', 'google'). Defaults to 'infinity_emb'.
         cross_encoder_name (str, optional): The name of the cross-encoder model to use. Defaults to "BAAI/bge-reranker-base".
 
     Returns:
         tuple: The selected embedding model and cross-encoder.
     """
     logger.info(f"Loading model: {model_name} with embedding mode: {_embed_mode}")
-    supported_modes = ['infinity_emb', 'huggingface', 'gemini']
+    supported_modes = ['infinity_emb', 'huggingface', 'google']
     if _embed_mode not in supported_modes:
         logger.error(f"Unsupported embedding mode: {_embed_mode}")
         raise ValueError(f"Unsupported embedding mode: {_embed_mode}. Supported modes: {supported_modes}")
@@ -156,22 +159,25 @@ def load_model(model_name, _embed_mode='infinity_emb', cross_encoder_name="BAAI/
             raise RuntimeError(f"Failed to load InfinityEmbeddings: {e}, please first start the server using infinity_emb v2 --model-id (https://github.com/michaelfeil/infinity)")
     elif _embed_mode == 'huggingface':
         try:
+            extra_kwargs = {'trust_remote_code': True}
             hf_embeddings = HuggingFaceEmbeddings(
                 model_name=model_name,
-                model_kwargs={'trust_remote_code': True}
+                model_kwargs={**extra_kwargs, **kwargs} if kwargs else extra_kwargs
             )
         except Exception as e:
             logger.error(f"Failed to load HuggingFaceEmbeddings: {e}")
             raise RuntimeError(f"Failed to load HuggingFaceEmbeddings: {e}")
-    elif _embed_mode == 'gemini':
+    elif _embed_mode == 'google':
         try:
-            hf_embeddings = GoogleGenerativeAIEmbeddings(model=model_name, task_type="retrieval_query")
+            hf_embeddings = GoogleGenerativeAIEmbeddings(model=model_name, 
+                                                         task_type="retrieval_query",
+                                                         **kwargs)
         except Exception as e:
             logger.error(f"Failed to load GoogleGenerativeAIEmbeddings: {e}")
             raise RuntimeError(f"Failed to load GoogleGenerativeAIEmbeddings: {e}")
 
     try:
-        cross_encoder = HuggingFaceCrossEncoder(model_name=cross_encoder_name)
+        cross_encoder = HuggingFaceCrossEncoder(model_name=cross_encoder_name, **kwargs)
     except Exception as e:
         logger.error(f"Failed to load HuggingFaceCrossEncoder: {e}")
         raise RuntimeError(f"Failed to load HuggingFaceCrossEncoder: {e}")
@@ -194,7 +200,6 @@ def stream_text_1(placeholder, output):
         placeholder.markdown(current_text, unsafe_allow_html=True)
         time.sleep(0.01)  # Simulate streaming
 
-
 def stream_answer(text):
     """
     Streams text word-by-word with a short delay between each word for a dynamic output experience.
@@ -205,7 +210,6 @@ def stream_answer(text):
     for word in text.split(" "):
         yield word + " "
         time.sleep(0.02)
-
 
 def get_local_data():
     """
@@ -220,7 +224,6 @@ def get_local_data():
     day = days[day]
     return date, day
 
-
 def get_generative_model(model_name='gemini-1.5-flash',
                         type='google',
                         base_url='http://localhost:11434/v1',
@@ -230,7 +233,8 @@ def get_generative_model(model_name='gemini-1.5-flash',
     Initializes and returns a generative language model based on the specified type.
     Args:
         model_name (str): The name of the model to use (default is 'gemini-1.5-flash').
-        type (str): The type of model to initialize ('google' or 'local').
+        type (str): The type of model to initialize ('google','local','groq','openai','others'). 
+                    For others add openai compatible api base url in the model_config.py file.
         base_url (str): The base URL for the local model if type is 'local'.
         _tools (list, optional): A list of tools to bind to the model.
         kwargs (dict, optional): Additional keyword arguments for model initialization.
@@ -240,6 +244,8 @@ def get_generative_model(model_name='gemini-1.5-flash',
     if kwargs is None:
         kwargs = {}
     if type == 'google':
+        extra_kwargs = {'generation_config': {"response_mime_type": "application/json"}}
+        kwargs = {**kwargs, **extra_kwargs}
         llm = ChatGoogleGenerativeAI(
             model=model_name,
             **kwargs,
@@ -262,10 +268,14 @@ def get_generative_model(model_name='gemini-1.5-flash',
             model=model_name,
             **kwargs
         )
+    elif type == 'others':
+        llm = ChatOpenAI(
+            model=model_name,
+            **kwargs
+        )
     if _tools:
         llm.bind_tools(_tools)
     return llm
-
 
 def log_results(query, context, date, day):
     """
@@ -281,7 +291,6 @@ def log_results(query, context, date, day):
     with open("search_context.txt", "a") as f:
         context = "==" * 80 + "\n" + "QUERY:" + query + "\n" + "Context:" + context
         f.write(context)
-
 
 def ordered_set_by_key(data):
     """
@@ -305,7 +314,6 @@ def ordered_set_by_key(data):
 
     return unique_items
 
-
 def remove_consecutive_newlines(text):
     """
     Removes more than three consecutive newline characters from the text, replacing them with spaces.
@@ -322,7 +330,6 @@ def remove_consecutive_newlines(text):
     # Replace the matched pattern with a single space
     return re.sub(pattern, "", text)
 
-
 def remove_main_url(url):
     """
     Removes the trailing part of the URL after ".com" to simplify URLs.
@@ -334,7 +341,6 @@ def remove_main_url(url):
         str: The base URL truncated after ".com".
     """
     return url.split(".com")[0] + ".com"
-
 
 def extract_markdown_tables(filename, md_text):
     """
@@ -364,7 +370,6 @@ def extract_markdown_tables(filename, md_text):
         tables[i].metadata['source'] = filename
     return tables
 
-
 def extract_urls(text):
     """
     Extracts URLs from the given text using a regular expression pattern.
@@ -382,7 +387,6 @@ def extract_urls(text):
     urls = re.findall(pattern, text)
 
     return urls
-
 
 def extract_subqueries(text):
     """
@@ -406,7 +410,6 @@ def extract_subqueries(text):
         subqueries = [query.strip().strip('"') for query in subqueries]
         return subqueries
     return []
-
 
 def extract_urls_from_query(text):
     """
