@@ -69,3 +69,39 @@ openai_compatible = {
     'openai':'https://api.openai.com/v1',
     'others': 'https://openrouter.ai/api/v1' # for an example I have added here the openrouter api, since its openai compatible
 }
+
+#####IF YOU WANT TO GO ALL LOCAL 
+
+# model_config = {
+#     # Name of the LLM model to use. For local models, use the model name served by your local server.
+#     "llm_model_name": "google/gemma-3-12b",
+
+#     # LLM provider type: choose from 'google', 'local', 'groq', or 'openai' or 'others' 
+#     # in case of 'others' (base url needs to be updated in openai_compatible given below accordingly).
+#     # Make sure to update the api_key variable above to match the provider.
+#     "llm_type": "local",
+
+#     # List of tools or plugins to use with the LLM, if any. Set to None if not used.
+#     "llm_tools": None,
+
+#     # Additional keyword arguments for LLM initialization.
+#     "llm_kwargs": {
+#         "temperature": 0.1,  # Sampling temperature for generation.
+#         "max_tokens": None,  # Maximum number of tokens to generate (None for default).
+#         "timeout": None,     # Timeout for API requests (None for default).
+#         "max_retries": 2,    # Maximum number of retries for failed requests.
+#         "api_key": llm_api_key,  # API key for authentication.
+#     },
+
+#     # Name of the embedding model to use.
+#     # For Google, use their embedding model names. For local/HuggingFace, use the model path or name.
+#     "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
+
+#     "embed_kwargs":{}, #additional kwargs for embedding model initialization
+
+#     # Embedding backend: 'google' for Google, 'infinity_emb' for local/HuggingFace models.
+#     "embed_mode": "infinity_emb",
+
+#     # Name of the cross-encoder model for reranking, typically a HuggingFace model.
+#     "cross_encoder_name": "BAAI/bge-reranker-base"
+# }
