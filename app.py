@@ -17,22 +17,18 @@ from model_config import *
 llm_model_name = model_config.get("llm_model_name", 'google/gemma-3-12b')
 llm_type = model_config.get("llm_type", 'local')
 llm_tools = model_config.get("llm_tools",None)
-llm_base_url = model_config.get("llm_base_url", 'http://127.0.0.1:1234/v1')
+llm_base_url = openai_compatible.get(model_config['llm_type'], 
+                                     'https://api.openai.com/v1')
 
-if llm_type=='google':
-    llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1, 
-                                                'max_tokens': None, 
-                                                'timeout': None, 
-                                                'api_key':api_key,
-                                                'generation_config':{"response_mime_type": "application/json"},
-                                                'max_retries': 2})
-else:
-    llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1, 
-                                                'max_tokens': None, 
-                                                'timeout': None, 
-                                                'api_key':api_key,
-                                                'max_retries': 2})
-    
+
+
+llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1, 
+                                            'max_tokens': None, 
+                                            'timeout': None, 
+                                            'api_key':llm_api_key,
+                                            'max_retries': 2})
+
+embed_kwargs = model_config.get("embed_kwargs", {})
 embedding_model_name = model_config.get("embedding_model_name", "models/embedding-001")
 embed_mode = model_config.get("embed_mode", "gemini")
 cross_encoder_name = model_config.get("cross_encoder_name", "BAAI/bge-reranker-base")
@@ -50,11 +46,6 @@ if not is_searxng_running():
 else:
     print("SearxNG docker container is already running.")
 
-# Local LLMs are supported via OpenAI route, more support will be added soon..
-if not os.environ['GOOGLE_API_KEY']: # If its already set via export, it won't override
-    os.environ['GOOGLE_API_KEY'] = "YOUR_API_KEY"
-
-
 llm = get_generative_model(
     model_name=llm_model_name,
     type=llm_type,
@@ -65,14 +56,13 @@ llm = get_generative_model(
 
 hf_embeddings, cross_encoder = load_model(embedding_model_name, 
                                           _embed_mode=embed_mode,
-                                          cross_encoder_name=cross_encoder_name)
+                                          cross_encoder_name=cross_encoder_name,
+                                          kwargs=embed_kwargs)
 
 text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 
 searcher = SearchWeb(30)
 date, day = get_local_data()
-
-
 app = FastAPI(title='coexistai')
 
 @app.get('/')
@@ -124,6 +114,51 @@ class GitSearchRequest(BaseModel):
     query: str
     type: str
 
+class LocalFolderTreeRequest(BaseModel):
+    folder_path:str
+    level: str = 'broad-first'
+    prefix: str = ''
+
+class ResearchCheckRequest(BaseModel):
+    query: str
+    toolsshorthand: str  # Default budget for deep research, can be adjusted as needed
+
+class ClickableElementRequest(BaseModel):
+    url:str
+    query:str
+    topk:int=10
+
+@app.post('/clickable-elements', operation_id="get_website_structure")
+async def get_website_structure(request: ClickableElementRequest):
+    """
+    Retrieves the top-k clickable elements from a given URL based on a query.
+    This will help you to find out if there are any clickable elements on the page that match the query.
+    You can use this to find deeper links since connected pieces of information are often linked together.
+    Args:
+        url (str): The URL to search for clickable elements.
+        query (str): The query to filter the clickable elements.
+        topk (int): The number of top clickable elements to return.
+    Returns:
+        list: A list of dictionaries containing the title, URL, and score of each clickable element.
+    """
+    return await get_topk_bm25_clickable_elements(request.url, request.query, request.topk)
+
+@app.post('/local-folder-tree', operation_id="get_local_folder_tree")
+async def get_local_folder_tree(request: LocalFolderTreeRequest):
+    """
+    Async Markdown folder tree.
+    Args:
+        folder_path (str): Root directory.
+        level (str):
+            - 'full': Show all folders and files, recursively, except hidden/system/cache entries.
+            - 'broad-first': Only show immediate (top-level) folders and files (no nesting).
+            - 'broad-second': Show top-level folders/files and their immediate child folders/files (two levels, no deeper).
+        prefix (str): Indentation (internal)
+    Returns:
+        str: Markdown tree string
+    """
+    return await folder_tree(request.folder_path, level=request.level, prefix=request.prefix)
+
 @app.post('/git-tree-search',operation_id="get_git_tree")
 async def get_git_tree(request:GitTreeRequest):
    """
@@ -166,7 +201,6 @@ Fetched Content: {content}
     )
    return result.content
    
-
 @app.post('/web-search',operation_id="get_web_search")
 async def websearch(request: WebSearchRequest):
     """
@@ -291,12 +325,42 @@ async def map_search(request: MapSearchRequest):
                         )
     return result
 
+@app.post('/check-response', operation_id="get_response_check")
+async def check_response(request: ResearchCheckRequest):
+    """
+    Evaluates whether the agent's collected information is complete for writing answer to the user's query. 
+    If any aspect is missing, list them all in bullet format
+    Args:
+        query (str): The user's original query.
+        toolsshorthand (str):  Exact Facts/Information collected in bullets from every past tool usage which would be useful to answer
+    Returns:
+        str: Suggestions for improvement or confirmation that all aspects are addressed.
+    """
+    system_prompt = f"""You are a professional researcher.
+Review the following user query and the agent's short hand of informations collected. 
+If not explicitly asked for deep research, you should just check if most necessary information and all aspects present in query are covered, NO NEED TO SUGGEST EXTRA, SINCE ITS QUICK QUERY
+Determine if the shorthand fully addresses every aspect and intent of the query.
+If any part is missing or could be improved, list the specific aspects or suggestions for further research or value addition.(IF DEEP RESEARCH ASKED EXPLICITLY)
+If the response is complete, state that all aspects have been addressed.
+
+User Query: {request.query}
+Agent Shorthand: {request.toolsshorthand}
+"""
+
+    result = llm.invoke(
+        system_prompt
+    )
+    return result.content
+
 mcp = FastApiMCP(app,include_operations=['get_web_search',
                                          'get_web_summarize',
                                          'get_youtube_search',
                                          'get_reddit_search',
                                          'get_map_search',
                                          "get_git_tree",
-                                         "get_git_search"
+                                         "get_git_search",
+                                         "get_local_folder_tree",
+                                         "get_response_check",
+                                         "get_website_structure"
                                          ],)
 mcp.mount()
