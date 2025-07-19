@@ -11,8 +11,9 @@ source coexistaienv/bin/activate
 
 pip install 'markitdown[all]'
 
-echo "Setting GOOGLE_API_KEY (edit this script to use your real key)"
+echo "Setting GOOGLE_API_KEY, add any other keys which you want to store in environment (edit this script to use your real key)"
 export GOOGLE_API_KEY=REPLACE_YOUR_API_KEY_HERE_WITHOUT_QUOTES_AND_SPACES
+
 
 # Spin up the SearxNG Docker container
 echo "Starting SearxNG Docker container..."
