@@ -61,7 +61,10 @@ def process_content(url, content_type, content):
         else:
             try:
                 logger.info("Processing HTML content.")
-                soup = BeautifulSoup(content, 'html.parser', from_encoding="iso-8859-1")
+                headers = {"User-Agent": "Mozilla/5.0"}
+                soup = BeautifulSoup(content, 'html.parser', from_encoding="iso-8859-1",
+                                     headers=headers
+                                     )
                 soup = clean_html(soup)
                 markdown_content = md(str(soup), strip=['a'])
                 markdown_content = remove_consecutive_newlines(markdown_content)
