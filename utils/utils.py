@@ -138,7 +138,7 @@ def load_model(model_name,
                     stderr=subprocess.DEVNULL,
                 )
                 # Wait a few seconds for the server to start
-                time.sleep(20)
+                time.sleep(30)
                 # Check again if the Infinity API server is running after attempting to start it
                 try:
                     response = requests.get(f"{infinity_api_url}/health", timeout=2)
