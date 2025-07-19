@@ -17,7 +17,7 @@
 
 ## 🛠 Quick Start
 
-### Method 1 (Less flexible but faster):
+### Method (Less flexible but faster):
 
 1. **Clone the repository:**
    ```sh
@@ -25,7 +25,50 @@
    cd coexistai
    ```
 
-2. **Run the setup script:**
+
+2. **Configure your model and embedding settings:**
+   
+   - Edit `model_config.py` to set your preferred LLM and embedding model.
+   - Add LLM and Embedder API Key (for google mode both would be same)
+   - Example (for full local mode):
+    ```py
+    model_config = {
+      # Name of the LLM model to use. For local models, use the model name served by your local server.
+      "llm_model_name": "google/gemma-3-12b",
+
+      # LLM provider type: choose from 'google', 'local', 'groq', or 'openai' or 'others' 
+      # in case of 'others' (base url needs to be updated in openai_compatible given below accordingly).
+      # Make sure to update the api_key variable above to match the provider.
+      "llm_type": "local",
+
+      # List of tools or plugins to use with the LLM, if any. Set to None if not used.
+      "llm_tools": None,
+
+      # Additional keyword arguments for LLM initialization.
+      "llm_kwargs": {
+        "temperature": 0.1,  # Sampling temperature for generation.
+        "max_tokens": None,  # Maximum number of tokens to generate (None for default).
+        "timeout": None,     # Timeout for API requests (None for default).
+        "max_retries": 2,    # Maximum number of retries for failed requests.
+        "api_key": llm_api_key,  # API key for authentication.
+      },
+
+      # Name of the embedding model to use.
+      # For Google, use their embedding model names. For local/HuggingFace, use the model path or name.
+      "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
+
+      "embed_kwargs":{}, #additional kwargs for embedding model initialization
+
+      # Embedding backend: 'google' for Google, 'infinity_emb' for local/HuggingFace models.
+      "embed_mode": "infinity_emb",
+
+      # Name of the cross-encoder model for reranking, typically a HuggingFace model.
+      "cross_encoder_name": "BAAI/bge-reranker-base"
+    }
+    ```
+   - See the file for all available options and defaults.
+
+3. **Run the setup script:**
    - For macOS or Linux with zsh:
      ```sh
      zsh quick_setup.sh
@@ -38,17 +81,17 @@
    > The script will:
    > - Pull the SearxNG Docker image
    > - Create and activate a Python virtual environment
-   > - [**USER ACTION NEEDED**]Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider.
+   > - **USER ACTION NEEDED** Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider. (Only needed when google mode is set, else set in model_config.py)
    > - Start the SearxNG Docker container
    > - Install Python dependencies
-   > - Start the FastAPI and MCP server, BOTH.
+   > - Start the FastAPI server
 
-3. **That’s it!**  
+4. **That’s it!**  
    The FastAPI and MCP server will start automatically and you’re ready to go.
 
 **Note:**  
 - Make sure Docker, Python 3, and pip are installed on your system.  
-- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running.  
+- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running (needed if using google models) 
 - Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
 
 ## 🔍 What Can You Do? (API Highlights & Examples)
