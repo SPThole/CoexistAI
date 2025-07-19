@@ -835,7 +835,7 @@ async def summary_of_url(query, url, model, local_mode=False):
         for d in docs:
             content = content + 'source:' + url  + '\n\ncontent:' + d.page_content
         summary = model.invoke(f"Summarise the following content to answer {query}:\n{content}")
-        return summary
+        return summary.content
     except Exception as e:
         logger.error(f"Error summarizing URL {url}: {e}")
         return "Error generating summary."
