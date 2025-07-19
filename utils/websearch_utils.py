@@ -9,7 +9,9 @@ import requests
 import time
 import random
 import json
+import httpx
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from functools import partial
 from langchain.docstore.document import Document
@@ -25,7 +27,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_search import YoutubeSearch
 from markitdown import MarkItDown
 from pathlib import Path
-
+from rank_bm25 import BM25Okapi
 
 
 import chromadb
@@ -103,8 +105,9 @@ class SearchWeb:
             # Handle GitHub raw URLs
             if 'github.com' in url:
                 url = url.replace('github', 'raw.githubusercontent')
-
-            response = requests.get(url, timeout=15)
+            
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, timeout=15, headers=headers)
             response.raise_for_status()
 
             page_content = response.content
@@ -538,6 +541,9 @@ async def query_web_response(
     """
     try:
         search_response,is_summary,is_covered_urls = query_agent(query, model, date, day)
+        if len(search_response) == 0:
+            search_response = [query]
+            logger.info(f"Search response generated for query '{query}' using pure query.")
         if is_summary:
             split=False
         search_response = [text.replace('"', '') for text in search_response]
@@ -860,3 +866,59 @@ def get_all_paths(root_path):
     else:
         paths=None
     return paths
+
+async def fetch_html(url, client):
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0"
+        )
+    }
+    resp = await client.get(url, headers=headers)
+    resp.raise_for_status()
+    return resp.text
+
+async def extract_clickable_elements(url):
+    async with httpx.AsyncClient(timeout=10) as client:
+        html = await fetch_html(url, client)
+        soup = BeautifulSoup(html, 'html.parser')
+        results = []
+
+        # Anchor tags
+        for a in soup.find_all('a', href=True):
+            text = a.get_text(strip=True) or a.get('aria-label') or a.get('title')
+            href = a['href']
+            if text and href and not href.startswith('#'):
+                full_url = urljoin(url, href)
+                results.append({'title': text, 'url': full_url})
+
+        # Elements with onclick (e.g., location.href)
+        for elem in soup.find_all(attrs={"onclick": True}):
+            text = elem.get_text(strip=True) or elem.get('aria-label') or elem.get('title')
+            onclick = elem['onclick']
+            match = re.search(r"location\.href=['\"]([^'\"]+)['\"]", onclick)
+            js_url = match.group(1) if match else None
+            if text and js_url:
+                full_url = urljoin(url, js_url)
+                results.append({'title': text, 'url': full_url})
+
+        return results
+
+def bm25_search(elements, query,topk=10):
+    def tokenize(text):
+        return text.lower().split()
+    titles = [el['title'] for el in elements]
+    tokenized_corpus = [tokenize(title) for title in titles]
+    bm25 = BM25Okapi(tokenized_corpus)
+    tokenized_query = tokenize(query)
+    scores = bm25.get_scores(tokenized_query)
+    ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    ranked_results = [
+        {'title': elements[i]['title'], 'url': elements[i]['url'], 'score': scores[i]}
+        for i in ranked_indices if scores[i] >= 0
+    ]
+    return ranked_results[:topk]
+
+async def get_topk_bm25_clickable_elements(url, query, topk=10):
+    elements = await extract_clickable_elements(url)
+    ranked = bm25_search(elements, query, topk)
+    return ranked
