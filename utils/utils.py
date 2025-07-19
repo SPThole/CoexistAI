@@ -103,7 +103,7 @@ def fix_json(json_str):
 def load_model(model_name, 
                _embed_mode='infinity_emb', 
                cross_encoder_name="BAAI/bge-reranker-base",
-               kwargs=None):
+               kwargs={}):
     """
     Loads the appropriate embeddings and cross-encoder model based on the embedding mode.
     TODO: Validate model and handle errors for unsupported modes.
@@ -138,7 +138,7 @@ def load_model(model_name,
                     stderr=subprocess.DEVNULL,
                 )
                 # Wait a few seconds for the server to start
-                time.sleep(10)
+                time.sleep(20)
                 # Check again if the Infinity API server is running after attempting to start it
                 try:
                     response = requests.get(f"{infinity_api_url}/health", timeout=2)
@@ -177,7 +177,7 @@ def load_model(model_name,
             raise RuntimeError(f"Failed to load GoogleGenerativeAIEmbeddings: {e}")
 
     try:
-        cross_encoder = HuggingFaceCrossEncoder(model_name=cross_encoder_name, **kwargs)
+        cross_encoder = HuggingFaceCrossEncoder(model_name=cross_encoder_name)
     except Exception as e:
         logger.error(f"Failed to load HuggingFaceCrossEncoder: {e}")
         raise RuntimeError(f"Failed to load HuggingFaceCrossEncoder: {e}")
@@ -228,7 +228,7 @@ def get_generative_model(model_name='gemini-1.5-flash',
                         type='google',
                         base_url='http://localhost:11434/v1',
                         _tools=None,
-                        kwargs=None):
+                        kwargs={}):
     """
     Initializes and returns a generative language model based on the specified type.
     Args:
