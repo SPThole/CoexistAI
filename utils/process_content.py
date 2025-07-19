@@ -74,7 +74,7 @@ def process_content(url, content_type, content):
                     if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg']):
                         logger.info("Converting image to markdown caption")
                         client = OpenAI(base_url=openai_compatible[model_config['llm_type']]
-                                        ,api_key=api_key)
+                                        ,api_key=llm_api_key)
                         md = MarkItDown(llm_client=client, 
                                         llm_model=model_config['llm_model_name'],
                                         llm_prompt='Answer in 2 sections 1. OCR output if there is any text (without losing structure) 2. What exactly is this?')
