@@ -561,7 +561,6 @@ async def query_web_response(
         logger.info(f"Total paths for '{query}': {all_paths}")
         # Only time doc is considered for different subqueries and only first is getting considered
         search_snippets, search_results, search_results_urls = [], [], all_paths * len(search_response)
-        logger.info(search_response,search_results_urls)
         search_snippets_orig = {}
         logger.warning("No websearcher provided; using document_paths only.")
     else:
