@@ -4,6 +4,7 @@ import re
 import fitz
 from bs4 import BeautifulSoup
 from markdownify import markdownify
+from markitdown import MarkItDown
 import pymupdf4llm
 import sys
 import os
@@ -67,30 +68,21 @@ def process_content(url, content_type, content):
             markdown_content = re.sub(r"\S{21,}", "", markdown_content)
         else:
             try:
-                logger.info("Processing HTML content.")
-                soup = BeautifulSoup(content, 'html.parser', from_encoding="iso-8859-1",
-                                     )
-                soup = clean_html(soup)
-                markdown_content = markdownify(str(soup), strip=['a'])
-                markdown_content = remove_consecutive_newlines(markdown_content)
-                markdown_content = re.sub(r"\S{21,}", "", markdown_content)
-            except Exception as e:
-                try: 
-                    if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg']):
-                        logger.info("Converting image to markdown caption")
-                        client = OpenAI(base_url=openai_compatible[model_config['llm_type']]
-                                        ,api_key=llm_api_key)
-                        md = MarkItDown(llm_client=client, 
-                                        llm_model=model_config['llm_model_name'],
-                                        llm_prompt='Answer in 2 sections 1. OCR output if there is any text (without losing structure) 2. What exactly is this?')
-                        result = md.convert(url)
-                        markdown_content =  f"Content from {url}\n\n" + result.text_content
-                    else:
-                        md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
-                        markdown_content =  f"Content from {url}\n\n" + md.convert(url).text_content
-                except:
-                    logger.error(f"Error processing HTML: {e}", exc_info=True)
-                    return ""
+                if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg']):
+                    logger.info("Converting image to markdown caption")
+                    client = OpenAI(base_url=openai_compatible[model_config['llm_type']]
+                                    ,api_key=llm_api_key)
+                    md = MarkItDown(llm_client=client, 
+                                    llm_model=model_config['llm_model_name'],
+                                    llm_prompt='Answer in 2 sections 1. OCR output if there is any text (without losing structure) 2. What exactly is this?')
+                    result = md.convert(url)
+                    markdown_content =  f"Content from {url}\n\n" + result.text_content
+                else:
+                    md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+                    markdown_content =  f"Content from {url}\n\n" + md.convert(url).text_content
+            except:
+                logger.error(f"Error processing HTML: {e}", exc_info=True)
+                return ""
         logger.info("Content processed successfully.")
 
         return markdown_content
