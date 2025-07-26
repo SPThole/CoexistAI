@@ -11,6 +11,7 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
 - **Direct location search:** You can now search for any place, not just find routes!
 - **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
 - **YouTube power-up:** Search and summarize YouTube using your own search phrases or video URLs and even add a prompt for custom responses.
+- **Explore to your folders/files**: Explore local folders and files with extended support to diverse files including (vision integrated)'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg', etc, more to come..
 - **Sharper web search:** More focused and actionable results than ever before.
 - **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! [See Guide](README_MCP.md)
 - **GitHub & local repo explorer:** Explore ask questions about codebases - works with both GitHub and local repos!
