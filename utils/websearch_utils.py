@@ -556,10 +556,12 @@ async def query_web_response(
         logger.warning("Please add list of paths as input, earlier it used to be list of list")
         all_paths=[]
         for k in document_paths:
-            all_paths.append(get_all_paths(k))
+            all_paths.extend(get_all_paths(k))
+        all_paths = [all_paths]
         logger.info(f"Total paths for '{query}': {all_paths}")
         # Only time doc is considered for different subqueries and only first is getting considered
         search_snippets, search_results, search_results_urls = [], [], all_paths * len(search_response)
+        logger.info(search_response,search_results_urls)
         search_snippets_orig = {}
         logger.warning("No websearcher provided; using document_paths only.")
     else:
