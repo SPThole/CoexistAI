@@ -3,8 +3,7 @@ import re
 
 import fitz
 from bs4 import BeautifulSoup
-from markdownify import markdownify as md
-from markitdown import MarkItDown
+from markdownify import markdownify
 import pymupdf4llm
 import sys
 import os
@@ -54,19 +53,25 @@ def process_content(url, content_type, content):
                 logger.info("Processing PDF from stream.")
                 pdf_document = fitz.open(stream=content, filetype="pdf")
                 text_content = pymupdf4llm.to_markdown(pdf_document)
-                markdown_content =  f"Content from {url}\n\n" + md(text_content)
+                markdown_content =  f"Content from {url}\n\n" + markdownify(text_content)
             except Exception as e:
                 logger.error(f"Error processing PDF: {e}", exc_info=True)
                 return ""
+        elif 'text/html' in content_type:
+            logger.info("Processing HTML content.")
+            soup = BeautifulSoup(content, 'html.parser', from_encoding="iso-8859-1",
+                                    )
+            soup = clean_html(soup)
+            markdown_content = markdownify(str(soup), strip=['a'])
+            markdown_content = remove_consecutive_newlines(markdown_content)
+            markdown_content = re.sub(r"\S{21,}", "", markdown_content)
         else:
             try:
                 logger.info("Processing HTML content.")
-                headers = {"User-Agent": "Mozilla/5.0"}
                 soup = BeautifulSoup(content, 'html.parser', from_encoding="iso-8859-1",
-                                     headers=headers
                                      )
                 soup = clean_html(soup)
-                markdown_content = md(str(soup), strip=['a'])
+                markdown_content = markdownify(str(soup), strip=['a'])
                 markdown_content = remove_consecutive_newlines(markdown_content)
                 markdown_content = re.sub(r"\S{21,}", "", markdown_content)
             except Exception as e:
