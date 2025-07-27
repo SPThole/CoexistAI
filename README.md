@@ -32,6 +32,8 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
 ---
 
 ## 🛠️ Installation
+**Prerequisite:** Make sure Docker is installed and the Docker daemon is running.
+
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/SPThole/CoexistAI.git coexistai
