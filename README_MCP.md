@@ -4,7 +4,7 @@
   <img src="artifacts/v002mcplogo.jpeg" alt="CoexistAI MCP Logo" width="200"/>
 </p>
 
-## 🚀 What's New in v2
+## 🚀 What's New in v2: [Example Usage patterns](demo_queries.ipynb)
 
 - **Direct location search:** You can now search for any place, not just find routes!
 - **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
