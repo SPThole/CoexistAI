@@ -371,7 +371,9 @@ or:
 ---
 
 ## 🧑‍💻 Usage in Python
-[see example notebook](coexist_tutorial.ipynb)
+- [see example notebook](coexist_tutorial.ipynb)
+
+- [Example Usage patterns](demo_queries.ipynb)
 
 ```python
 from utils.websearch_utils import query_web_response
