@@ -285,7 +285,7 @@ async def reddit_search(request: RedditSearchRequest):
         k (int): Number of comments on each post to return after processing. When more perspectives needed increase this.
         custom_url (str): Custom URL for Reddit search.
         time_filter (str): Time filter for the search (e.g., 'all', 'day').
-        search_query (str): Search query for Reddit posts.
+        search_query (str): Search query for Reddit posts. IF NOT SEARCHING FOR A QUERY, dont set this value, keep it ""
         sort_type (str): Sorting type for the results.
         Returns:                                            
             dict: A dictionary containing the results of the Reddit search."""  
