@@ -488,6 +488,8 @@ This project is licensed under a custom Non-Commercial Research and Educational 
 
 If you find this project useful, please star the repo and share it with your network!
 
+[![Star History Chart](https://api.star-history.com/svg?repos=SPThole/CoexistAI&type=Date)](https://www.star-history.com/#SPThole/CoexistAI&Date)
+
 ---
 
 ## 📬 Contact
