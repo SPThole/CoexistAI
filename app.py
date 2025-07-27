@@ -72,7 +72,7 @@ async def root():
 class WebSearchRequest(BaseModel):
     query: str
     rerank: bool = True
-    num_results: int = 3
+    num_results: int = 2
     local_mode: bool = False
     split: bool = True
     document_paths: list[str] = []  # List of paths for local documents
@@ -134,6 +134,7 @@ async def get_website_structure(request: ClickableElementRequest):
     Retrieves the top-k clickable elements from a given URL based on a query.
     This will help you to find out if there are any clickable elements on the page that match the query.
     You can use this to find deeper links since connected pieces of information are often linked together.
+    RECOMMENDATION: Be specific with the query to get the most relevant clickable elements.
     Args:
         url (str): The URL to search for clickable elements.
         query (str): The query to filter the clickable elements.
@@ -206,6 +207,7 @@ async def websearch(request: WebSearchRequest):
     """
     Performs a web search and retrieves results, then generates a response based on those results.
     It also throws back the next steps, you should carry out your research until there are no next steps left.
+    RECOMMENDATION: Be specific with the query to get the most relevant results. and Set num_results to 2 (for better results)
     Args:
         query (str): The input query.
         rerank (bool): Whether to rerank results.
