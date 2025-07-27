@@ -20,6 +20,8 @@
 
 ### Method (Less flexible but faster):
 
+**Prerequisite:** Make sure Docker is installed and the Docker daemon is running.
+
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/SPThole/CoexistAI.git coexistai
@@ -296,6 +298,6 @@ You can now run coexistai as an MCP server—**plug it into LM Studio** or any o
 ## 🏆 Best Local Model
 
 For fastest, highest-quality local LLM results, I have personally liked following:  
-**unsloth/Qwen3-8B-GGUF**
+**unsloth/Qwen3-8B-GGUF** and **google/gemma-3-12b**
 
 ---
