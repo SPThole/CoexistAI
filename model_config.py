@@ -6,7 +6,10 @@ Attributes:
     model_config (dict): A dictionary containing configuration parameters for LLM and embedding models.
         Keys:
             - "llm_model_name" (str): Name of the LLM model to use.
-            - "llm_type" (str): Type of the LLM provider (e.g., "openai").
+            - "llm_type" (str): Type of the LLM provider (e.g., "openai"). "local" is for lmstudio, 
+            for ollama and other local models use "others" with base_url updated in openai_compatible.
+            - If you using others llm type, then check the openai_compatible url dict for others key, you can generally 
+            find it by "googling YOUR provider name openai api base compatilble url"
             - "llm_base_url" (str): Base URL for the LLM API endpoint.
             - "llm_tools" (list): List of tools or plugins to use with the LLM.
             - "llm_kwargs" (dict): Additional keyword arguments for LLM initialization.
@@ -31,6 +34,8 @@ model_config = {
     # LLM provider type: choose from 'google', 'local', 'groq', or 'openai' or 'others' 
     # in case of 'others' (base url needs to be updated in openai_compatible given below accordingly).
     # Make sure to update the api_key variable above to match the provider.
+    # "local" is for lmstudio, for ollama and other local models use "others" with base_url updated in openai_compatible.
+    # You can generally find it by "googling YOUR PROVIDER (example ollama) name openai api base compatible url"
     "llm_type": "google",
 
     # List of tools or plugins to use with the LLM, if any. Set to None if not used.
@@ -79,7 +84,7 @@ openai_compatible = {
 #     # LLM provider type: choose from 'google', 'local', 'groq', or 'openai' or 'others' 
 #     # in case of 'others' (base url needs to be updated in openai_compatible given below accordingly).
 #     # Make sure to update the api_key variable above to match the provider.
-#     "llm_type": "local",
+#     "llm_type": "local", 
 
 #     # List of tools or plugins to use with the LLM, if any. Set to None if not used.
 #     "llm_tools": None,
