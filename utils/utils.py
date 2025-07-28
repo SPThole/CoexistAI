@@ -270,6 +270,7 @@ def get_generative_model(model_name='gemini-1.5-flash',
         )
     elif type == 'others':
         llm = ChatOpenAI(
+            base_url=base_url,
             model=model_name,
             **kwargs
         )
