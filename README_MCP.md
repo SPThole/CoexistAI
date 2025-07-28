@@ -117,7 +117,7 @@ POST `/web-search`
   "num_results": 2, // Number of top results per subquery to explore (higher values = more tokens, slower/more costly).
   "local_mode": false, // Set to true to explore local documents (currently, only PDF supported).
   "split": true, // Set to false if you want full pages as input to LLMs; false may cause slower/more costly response.
-  "document_paths": [] // If local_mode is true, add a list of lists of document paths, e.g., [["documents/1706.03762v7.pdf"]]
+  "document_paths": [] // If local_mode is true, add a list of document paths, e.g., ["documents/1706.03762v7.pdf"]
 }
 
 ```
@@ -131,7 +131,7 @@ or QA/sumamrise local documents
   "num_results": 3,
   "local_mode": true,
   "split": true,
-  "document_paths": [["documents/1706.03762v7.pdf"]] // Must be a list of lists.
+  "document_paths": ["documents/1706.03762v7.pdf"] // Must be a list of lists.
 }
 ```
 
