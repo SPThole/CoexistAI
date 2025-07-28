@@ -217,7 +217,7 @@ or QA/sumamrise local documents
   "num_results": 3,
   "local_mode": true,
   "split": true,
-  "document_paths": ["documents/1706.03762v7.pdf"] // Must be a list of lists.
+  "document_paths": ["documents/1706.03762v7.pdf"] // Must be a list.
 }
 ```
 
