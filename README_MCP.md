@@ -70,6 +70,7 @@
     }
     ```
    - See the file for all available options and defaults.
+   - If you using others llm type, then check the openai_compatible url dict for others key, you can generally find it by "googling YOUR provider name openai api base compatilble url"
 
 3. **Run the setup script:**
    - For macOS or Linux with zsh:
