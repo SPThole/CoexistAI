@@ -36,3 +36,4 @@ fastapi-mcp
 gitingest
 langchain-groq
 youtube_transcript_api>=1.1.0
+slowapi
