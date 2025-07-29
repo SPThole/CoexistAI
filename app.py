@@ -11,6 +11,7 @@ from fastapi_mcp import FastApiMCP
 import json
 import os
 from model_config import *
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # Use config values for model and embedding paths
@@ -64,6 +65,18 @@ text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 searcher = SearchWeb(30)
 date, day = get_local_data()
 app = FastAPI(title='coexistai')
+
+origins = [
+    "*",  # Allow all origins (use specific domains in production)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # e.g. ["http://localhost", "http://localhost:3000"]
+    allow_credentials=True,
+    allow_methods=["*"],    # Allow all HTTP methods (including OPTIONS)
+    allow_headers=["*"],    # Allow all headers
+)
 
 @app.get('/')
 async def root():
