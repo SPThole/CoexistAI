@@ -234,22 +234,25 @@ async def websearch(request: WebSearchRequest):
     """
     # You may need to adjust these arguments based on your actual setup
     # For demonstration, using None for models and embeddings
-    result = await query_web_response(
-        query=request.query,
-        date=date,
-        day=day,
-        websearcher=searcher,  # Replace with your actual searcher instance if needed
-        hf_embeddings=hf_embeddings,
-        rerank=request.rerank,
-        cross_encoder=cross_encoder,
-        model=llm,
-        text_model=llm,
-        num_results=min(2,request.num_results),
-        document_paths=request.document_paths,
-        local_mode=request.local_mode,
-        split=request.split
-    )
-    return "result:" + result[0] + '\n\nsources:' + result[1]
+    try:
+        result = await query_web_response(
+            query=request.query,
+            date=date,
+            day=day,
+            websearcher=searcher,  # Replace with your actual searcher instance if needed
+            hf_embeddings=hf_embeddings,
+            rerank=request.rerank,
+            cross_encoder=cross_encoder,
+            model=llm,
+            text_model=llm,
+            num_results=min(2,request.num_results),
+            document_paths=request.document_paths,
+            local_mode=request.local_mode,
+            split=request.split
+        )
+        return "result:" + result[0] + '\n\nsources:' + result[1]
+    except:
+        return "No Websites not found, Try rephrasing query"
 
 @app.post('/web-summarize', operation_id="get_web_summarize")
 async def websummarize(request: WebSummarizeRequest):
