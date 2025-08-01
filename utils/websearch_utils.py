@@ -153,7 +153,7 @@ class SearchWeb:
         return out
 
 
-def process_url(
+async def process_url(
     url,
     query,
     text_splitter,
@@ -191,8 +191,8 @@ def process_url(
         tuple: Processed context, retrieved documents, document list, and URL.
     """
     try:
-        # Use async/process pool-based document retrieval
-        docs = asyncio.run(urls_to_docs([url], local_mode=local_mode))
+        # Use async document retrieval
+        docs = await urls_to_docs([url], local_mode=local_mode, split=split)
         logger.info(f"Processed {len(docs)} docs for URL: {url}")
     except Exception as e:
         logger.error(f"Error processing {url}: {e}")
@@ -208,7 +208,7 @@ def process_url(
     if 'reddit.com' in url:
         try:
             logger.info(f"Processing Reddit URL with wait: {url}")
-            time.sleep(random.randint(1, 3))  # Random sleep to avoid rate limiting
+            await asyncio.sleep(random.randint(1, 3))  # Async sleep to avoid rate limiting
             response = reddit_reader_response(
                 subreddit=None, url_type='url', n=5, k=5,
                 custom_url=url, time_filter=None,
@@ -307,7 +307,7 @@ def process_url(
     return context, retrieved_docs, docs, url
 
 
-def context_to_docs(
+async def context_to_docs(
     urls_list,
     subqueries,
     search_snippets,
@@ -342,21 +342,22 @@ def context_to_docs(
     Returns:
         tuple: Combined context string, list of retrieved documents, and list of all processed documents.
     """
-    logger.info(f"Starting context_to_docs for {len(urls_list)} URL groups.")
+    logger.info(f"Starting async context_to_docs for {len(urls_list)} URL groups.")
     text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
     contexts = []
     rtr_docs = []
     used_urls = []
     total_docs = []
 
-    with ThreadPoolExecutor() as executor:
-        future_to_url = {}
-        for u, urls in enumerate(urls_list):
-            if not urls:
-                logger.warning(f"No URLs provided for subquery {u}.")
-                continue
-            process_url_partial = partial(
-                process_url,
+    # Create async tasks for parallel URL processing
+    async def process_url_async_wrapper(url, subquery_idx):
+        """Async wrapper for process_url to handle individual URL processing"""
+        try:
+            logger.info(f"Starting async processing for URL: {url}")
+            
+            # Call the async version of process_url
+            context, retrieved_docs, docs, processed_url = await process_url(
+                url=url,
                 query=query,
                 text_splitter=text_splitter,
                 used_urls=used_urls,
@@ -364,37 +365,84 @@ def context_to_docs(
                 cross_encoder=cross_encoder,
                 rerank=rerank,
                 top_k=top_k,
-                subquery=subqueries[u],
+                subquery=subqueries[subquery_idx],
                 search_snippets_orig=search_snippets_orig,
                 model=model,
                 local_mode=local_mode,
                 split=split
             )
-            for url in urls:
-                future = executor.submit(process_url_partial, url)
-                future_to_url[future] = url
-
-        for future in as_completed(future_to_url):
-            url = future_to_url[future]
-            try:
-                context, retrieved_docs, docs, url = future.result(timeout=20)
-                for k in search_snippets:
+            
+            # Process search snippets context replacement
+            for k in search_snippets:
+                if context:
                     context = context.replace(
                         k.metadata['source'],
                         k.metadata['source'] + f"title:{k.metadata.get('title', '')}"
                     )
-                if context and retrieved_docs and docs:
-                    contexts.append(context)
-                    rtr_docs.append(retrieved_docs)
-                    total_docs.extend(docs)
-                    used_urls.append(url)
-                    logger.info(f"Successfully processed and added context/docs for URL: {url}")
-                else:
-                    logger.warning(f"No valid docs/context for URL: {url}")
-            except concurrent.futures.TimeoutError:
-                logger.error(f"Timeout: Moving to next URL since {url} is taking too long.")
-            except Exception as e:
-                logger.error(f"An error occurred with URL {url}: {e}")
+            
+            return {
+                'url': processed_url,
+                'context': context,
+                'retrieved_docs': retrieved_docs,
+                'docs': docs,
+                'success': True
+            }
+            
+        except Exception as e:
+            logger.error(f"Async processing failed for URL {url}: {e}")
+            return {
+                'url': url,
+                'context': None,
+                'retrieved_docs': None,
+                'docs': None,
+                'success': False,
+                'error': str(e)
+            }
+
+    # Collect all URL processing tasks
+    all_tasks = []
+    for u, urls in enumerate(urls_list):
+        if not urls:
+            logger.warning(f"No URLs provided for subquery {u}.")
+            continue
+        
+        for url in urls:
+            task = process_url_async_wrapper(url, u)
+            all_tasks.append(task)
+    
+    if not all_tasks:
+        logger.warning("No URLs to process.")
+        search_snippets_context = [
+            f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
+            for d in search_snippets
+        ]
+        search_snippets_context = '\n'.join(search_snippets_context)
+        return search_snippets_context, [], []
+
+    # Execute all tasks in parallel
+    logger.info(f"Processing {len(all_tasks)} URLs in parallel using asyncio.gather")
+    results = await asyncio.gather(*all_tasks, return_exceptions=True)
+    
+    # Process results
+    successful_results = 0
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error(f"URL processing task failed with exception: {result}")
+            continue
+            
+        if result['success'] and result['context'] and result['retrieved_docs'] and result['docs']:
+            contexts.append(result['context'])
+            rtr_docs.append(result['retrieved_docs'])
+            total_docs.extend(result['docs'])
+            used_urls.append(result['url'])
+            successful_results += 1
+            logger.info(f"Successfully processed and added context/docs for URL: {result['url']}")
+        else:
+            logger.warning(f"No valid docs/context for URL: {result['url']}")
+            if not result['success']:
+                logger.error(f"Processing error for {result['url']}: {result.get('error', 'Unknown error')}")
+
+    logger.info(f"Async parallel processing complete. Successfully processed {successful_results}/{len(all_tasks)} URLs")
 
     search_snippets_context = [
         f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
@@ -403,7 +451,7 @@ def context_to_docs(
     search_snippets_context = '\n'.join(search_snippets_context)
     final_context = '\n\n'.join(contexts).strip() + '\n' + search_snippets_context
 
-    logger.info(f"context_to_docs complete. Total contexts: {len(contexts)}, total docs: {len(total_docs)}")
+    logger.info(f"async context_to_docs complete. Total contexts: {len(contexts)}, total docs: {len(total_docs)}")
     return final_context, rtr_docs, total_docs
 
 
@@ -598,7 +646,7 @@ async def query_web_response(
 
     try:
         
-        context, rtr_docs, total_docs = context_to_docs(
+        context, rtr_docs, total_docs = await context_to_docs(
             search_results_urls,
             search_response,
             search_snippets,
@@ -612,7 +660,7 @@ async def query_web_response(
             local_mode=local_mode,
             split=split
         )
-        logger.info(f"Context generated to answer query '{query}'.")
+        logger.info(f"Async context generated to answer query '{query}'.")
     except Exception as e:
         logger.error(f"Error generating context for query '{query}': {e}")
         return None, None, None, None, None, None, None
@@ -625,15 +673,15 @@ async def query_web_response(
 
     try:
         if not is_summary or (is_covered_urls):
-            logger.info(f"Generating Answer for query '{query}' using response gen.")
-            response_1, sources = response_gen(text_model, query, context)
+            logger.info(f"Generating Answer for query '{query}' using async response gen.")
+            response_1, sources = await response_gen(text_model, query, context)
         else:
-            logger.info(f"Generating summary for query '{query}' using summarizer.")
-            response_1 = summarizer(query, total_docs, text_model, 16)
+            logger.info(f"Generating summary for query '{query}' using async summarizer.")
+            response_1 = await summarizer(query, total_docs, text_model, 16)
             sources = str(search_results_urls)
-        logger.info(f"Response generated for query '{query}'.")
+        logger.info(f"Async response generated for query '{query}'.")
     except Exception as e:
-        logger.error(f"Error generating response for query '{query}': {e}")
+        logger.error(f"Error generating async response for query '{query}': {e}")
         return None, None, None, None, None, None, None
 
     return response_1, sources, search_response, search_results, rtr_docs, total_docs, context

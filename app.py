@@ -252,7 +252,7 @@ async def websearch(request: WebSearchRequest):
         )
         return "result:" + result[0] + '\n\nsources:' + result[1]
     except:
-        return "No Websites not found, Try rephrasing query"
+        return "No Websites found, Try rephrasing query"
 
 @app.post('/web-summarize', operation_id="get_web_summarize")
 async def websummarize(request: WebSummarizeRequest):
@@ -264,13 +264,16 @@ async def websummarize(request: WebSummarizeRequest):
         local_mode (bool): Whether to process local documents.
     Returns:
         dict: A dictionary containing the generated summary and sources."""
-    result = await summary_of_url(
-        query=request.query,
-        url=request.url,
-        model=llm,  # Replace with your actual model if needed
-        local_mode=request.local_mode
-    )
-    return result
+    try:
+        result = await summary_of_url(
+            query=request.query,
+            url=request.url,
+            model=llm,  # Replace with your actual model if needed
+            local_mode=request.local_mode
+        )
+        return result
+    except:
+        return "URL is not reacheable, try different URL"
 
 @app.post('/youtube-search', operation_id="get_youtube_search")
 async def youtube_search(request: YouTubeSearchRequest):

@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import Union
 from pydantic import BaseModel, Field
 
@@ -90,7 +91,7 @@ def query_agent(query, llm, date, day):
     return response, is_summary,is_covered_urls
 
 
-def response_gen(model, query, context):
+async def response_gen(model, query, context):
     """
     Generates a comprehensive response for a given query using an LLM, incorporating context.
 
@@ -145,7 +146,7 @@ def response_gen(model, query, context):
     logger.info("Generating Answer for query: %s", query)
 
     try:
-        response = model.with_structured_output(ResponseGen).invoke(
+        response = await model.with_structured_output(ResponseGen).ainvoke(
             f"Query: {query}\nContext: {context}"
         )
         response = response.dict()
@@ -162,7 +163,8 @@ def response_gen(model, query, context):
         try:
             prompt = prompts['qa_response_generation'].format(context=context, query=query)
             prompt_template = f"{prompt}"
-            response = model.invoke(prompt_template).content
+            response = await model.ainvoke(prompt_template)
+            response = response.content
             answer = "#### Answer: \n" + response
             sources = ''
             logger.info("Fallback prompt-based response generated successfully.")
@@ -172,7 +174,7 @@ def response_gen(model, query, context):
     return answer, sources
 
 
-def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
+async def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
     """
     Summarizes a list of documents iteratively in batches using an LLM.
 
@@ -199,9 +201,33 @@ def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
         try:
             comb_docs = f'Document 0: {str(docs[0])}'
             prompt = prompts['summary_generation'].format(comb_docs=comb_docs, query=query)
-            response = llm.invoke(prompt).content
-            summary_text = getattr(response, 'text', None) or getattr(response, 'content', None) or str(response)
-            return '\n'.join([summary_text.strip()] if summary_text else [])
+            response = await llm.ainvoke(prompt)
+            logger.info(f"Response type: {type(response)}")
+            logger.info(f"Response attributes: {dir(response)}")
+            logger.info(f"Response: {response}")
+            
+            # Handle different response types from async LLM calls
+            if hasattr(response, 'content') and not callable(response.content):
+                summary_text = response.content
+            elif hasattr(response, 'text') and not callable(response.text):
+                summary_text = response.text
+            elif hasattr(response, 'content') and callable(response.content):
+                # If content is a method, call it
+                summary_text = response.content()
+            elif hasattr(response, 'text') and callable(response.text):
+                # If text is a method, call it
+                summary_text = response.text()
+            else:
+                summary_text = str(response)
+            
+            logger.info(f"Extracted summary_text: {summary_text}")
+            logger.info(f"Summary_text type: {type(summary_text)}")
+            
+            if summary_text and isinstance(summary_text, str):
+                return summary_text.strip()
+            else:
+                logger.warning("Empty or invalid summary for single document.")
+                return 'SUMMARIZATION FAILED'
         except Exception as e:
             logger.error(f"Summarization failed for single document: {e}")
             return 'SUMMARIZATION FAILED'
@@ -213,28 +239,62 @@ def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
         len_docs = max_docs
     while len_docs > 1:
         summaries = []
-        for i in range(0, len_docs, batch):
-            batch_docs = docs[i:i + batch]
+        
+        # Create async tasks for parallel batch processing
+        async def process_batch(batch_docs, batch_index):
             if not batch_docs:
-                continue
+                return None
+            
             comb_docs = '\n'.join(
-                [f'Document {j+i}:' + str(d) for j, d in enumerate(batch_docs)]
+                [f'Document {j+batch_index}:' + str(d) for j, d in enumerate(batch_docs)]
             )
+            
             try:
                 prompt = prompts['summary_generation'].format(comb_docs=comb_docs, query=query)
-                response = llm.invoke(prompt).content
-                # Handle different LLM output structures
-                summary_text = getattr(response, 'text', None) or getattr(response, 'content', None) or str(response)
-                if summary_text:
-                    summaries.append(summary_text.strip())
+                response = await llm.ainvoke(prompt)
+                # Handle different response types from async LLM calls
+                if hasattr(response, 'content') and not callable(response.content):
+                    summary_text = response.content
+                elif hasattr(response, 'text') and not callable(response.text):
+                    summary_text = response.text
+                elif hasattr(response, 'content') and callable(response.content):
+                    # If content is a method, call it
+                    summary_text = response.content()
+                elif hasattr(response, 'text') and callable(response.text):
+                    # If text is a method, call it
+                    summary_text = response.text()
                 else:
-                    logger.warning(f"Empty summary for batch starting at {i}.")
+                    summary_text = str(response)
+                
+                if summary_text and isinstance(summary_text, str):
+                    return summary_text.strip()
+                else:
+                    logger.warning(f"Empty or invalid summary for batch starting at {batch_index}.")
+                    return None
             except Exception as e:
-                logger.error(f"Summarization failed for batch starting at {i}: {e}")
-                continue
+                logger.error(f"Async summarization failed for batch starting at {batch_index}: {e}")
+                return None
+        
+        # Create tasks for all batches
+        batch_tasks = []
+        for i in range(0, len_docs, batch):
+            batch_docs = docs[i:i + batch]
+            batch_tasks.append(process_batch(batch_docs, i))
+        
+        # Execute all batch tasks in parallel
+        if batch_tasks:
+            logger.info(f"Processing {len(batch_tasks)} batches in parallel")
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            # Collect successful results
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    logger.error(f"Batch processing failed: {result}")
+                elif result is not None:
+                    summaries.append(result)
 
         if not summaries:
-            logger.error("No summaries generated in this iteration, aborting.")
+            logger.error("No summaries generated in this async iteration, aborting.")
             return 'SUMMARIZATION FAILED'
 
         len_docs = len(summaries)
