@@ -48,6 +48,9 @@ handler.setFormatter(formatter)
 if not logger.hasHandlers():
     logger.addHandler(handler)
 
+# Global blacklist for unreachable domains
+UNREACHABLE_DOMAINS_BLACKLIST = set()
+
 
 class SearchWeb:
     """
@@ -506,14 +509,135 @@ def remove_urls(text):
         return text
 
 
-def query_to_search_results(query, search_response, websearcher, num_results=3):
+def extract_domain_from_url(url):
+    """
+    Extracts the domain from a URL for blacklisting purposes.
+    
+    Args:
+        url (str): The URL to extract domain from
+        
+    Returns:
+        str: The domain name (without www. prefix)
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        # Remove www. prefix if present
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return domain
+    except Exception as e:
+        logger.error(f"Error extracting domain from URL {url}: {e}")
+        return None
+
+
+async def check_url_reachability(url, timeout=10):
+    """
+    Checks if a URL is reachable using an async HEAD request.
+    
+    Args:
+        url (str): The URL to check
+        timeout (int): Timeout in seconds for the request
+        
+    Returns:
+        bool: True if URL is reachable, False otherwise
+    """
+    try:
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(timeout=timeout_config) as session:
+            async with session.head(url, allow_redirects=True) as response:
+                # Consider 2xx and 3xx status codes as reachable
+                is_reachable = 200 <= response.status < 400
+                logger.info(f"URL {url} reachability check: {response.status} - {'Reachable' if is_reachable else 'Unreachable'}")
+                return is_reachable
+    except Exception as e:
+        logger.warning(f"URL {url} is unreachable: {e}")
+        return False
+
+
+async def check_urls_reachability(urls):
+    """
+    Checks reachability of multiple URLs concurrently.
+    
+    Args:
+        urls (list): List of URLs to check
+        
+    Returns:
+        dict: Dictionary mapping URLs to their reachability status (True/False)
+    """
+    if not urls:
+        return {}
+    
+    logger.info(f"Checking reachability of {len(urls)} URLs")
+    tasks = [check_url_reachability(url) for url in urls]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    reachability_map = {}
+    for url, result in zip(urls, results):
+        if isinstance(result, Exception):
+            logger.error(f"Error checking URL {url}: {result}")
+            reachability_map[url] = False
+        else:
+            reachability_map[url] = result
+    
+    reachable_count = sum(1 for status in reachability_map.values() if status)
+    logger.info(f"Reachability check complete: {reachable_count}/{len(urls)} URLs are reachable")
+    return reachability_map
+
+
+def add_domains_to_blacklist(urls):
+    """
+    Adds domains from unreachable URLs to the global blacklist.
+    
+    Args:
+        urls (list): List of URLs whose domains should be blacklisted
+    """
+    global UNREACHABLE_DOMAINS_BLACKLIST
+    
+    for url in urls:
+        domain = extract_domain_from_url(url)
+        if domain and domain not in UNREACHABLE_DOMAINS_BLACKLIST:
+            UNREACHABLE_DOMAINS_BLACKLIST.add(domain)
+            logger.info(f"Added domain {domain} to blacklist")
+    
+    logger.info(f"Current blacklist contains {len(UNREACHABLE_DOMAINS_BLACKLIST)} domains: {list(UNREACHABLE_DOMAINS_BLACKLIST)}")
+
+
+def modify_query_with_blacklist(query):
+    """
+    Modifies a search query to exclude blacklisted domains using -site: operator.
+    
+    Args:
+        query (str): The original search query
+        
+    Returns:
+        str: Modified query with blacklisted domains excluded
+    """
+    global UNREACHABLE_DOMAINS_BLACKLIST
+    
+    if not UNREACHABLE_DOMAINS_BLACKLIST:
+        return query
+    
+    # Add -site: exclusions for each blacklisted domain
+    exclusions = [f"-site:{domain}" for domain in UNREACHABLE_DOMAINS_BLACKLIST]
+    modified_query = f"{query} {' '.join(exclusions)}"
+    
+    logger.info(f"Modified query with {len(exclusions)} domain exclusions: {modified_query}")
+    return modified_query
+
+
+def query_to_search_results(query, search_response, websearcher, num_results=3, max_retries=2):
     """
     Performs a web search for each query in the search response and extracts the URLs and search snippets.
+    Includes URL reachability checking, retry logic, and domain blacklisting to avoid unreachable sites.
 
     Args:
+        query (str): The original user query.
         search_response (list): A list of search queries or subqueries.
         websearcher (object): An instance of a web searcher (e.g., SearxSearchWrapper) to perform the search.
         num_results (int, optional): The number of results to retrieve for each search query. Defaults to 3.
+        max_retries (int, optional): Maximum number of retries when all URLs are unreachable. Defaults to 2.
 
     Returns:
         tuple: A tuple containing:
@@ -521,30 +645,169 @@ def query_to_search_results(query, search_response, websearcher, num_results=3):
             - search_results (list): The raw search results for the last query processed.
             - search_results_urls (list): A list of lists, where each sublist contains URLs from the search results of a query.
     """
-    try:
-        mentioned_url = extract_urls_from_query(query)
-        search_results_urls = []
-        search_snippets = []
-        search_results = []
-        for r in search_response:
+    async def perform_search_with_reachability_check(search_queries, current_num_results):
+        """
+        Inner async function to perform search and check URL reachability.
+        """
+        all_search_snippets = []
+        all_search_results = []
+        all_search_results_urls = []
+        all_urls_found = set()  # Track all URLs to avoid duplicates
+        
+        for r in search_queries:
             try:
-                results = websearcher.query_search(r, num_results=num_results)
-                logger.info(f"Search results fetched for subquery: {r}")
+                # Modify query to exclude blacklisted domains
+                modified_query = modify_query_with_blacklist(r)
+                results = websearcher.query_search(modified_query, num_results=current_num_results)
+                logger.info(f"Search results fetched for subquery: {r} (modified: {modified_query})")
             except Exception as e:
                 logger.error(f"Error fetching search results for subquery '{r}': {e}")
                 results = []
+            
             # Add mentioned URLs as empty-snippet results
+            mentioned_url = extract_urls_from_query(query)
             for u in mentioned_url:
-                results.append({'link': u, 'snippet': ''})
+                if u not in all_urls_found:
+                    results.append({'link': u, 'snippet': ''})
+                    all_urls_found.add(u)
+            
             try:
-                urls = [s['link'] for s in results if 'link' in s]
-                search_results_urls.append(urls)
-                search_snippets.extend(results)
+                urls = [s['link'] for s in results if 'link' in s and s['link'] not in all_urls_found]
+                # Update the set of all URLs found
+                all_urls_found.update(urls)
+                all_search_results_urls.append(urls)
+                all_search_snippets.extend(results)
             except Exception as e:
                 logger.error(f"Error processing search results for subquery '{r}': {e}")
-                search_snippets.extend(results)
-            search_results = results  # Keep last results for return
+                all_search_snippets.extend(results)
+            all_search_results = results  # Keep last results for return
+        
+        return all_search_snippets, all_search_results, all_search_results_urls, list(all_urls_found)
+    
+    try:
+        # Initialize variables
+        search_snippets = []
+        search_results = []
+        search_results_urls = []
+        retry_count = 0
+        
+        while retry_count <= max_retries:
+            logger.info(f"Search attempt {retry_count + 1}/{max_retries + 1}")
+            
+            # Use the same number of results for all attempts
+            current_num_results = num_results
+            
+            # Perform search (this needs to be called in an async context)
+            try:
+                # Since we're in a sync function but need async operations, we need to handle this
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If we're already in an async context, create a task
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run, 
+                            perform_search_with_reachability_check(search_response, current_num_results)
+                        )
+                        search_snippets, search_results, search_results_urls, all_urls = future.result()
+                else:
+                    # If no event loop is running, we can use asyncio.run
+                    search_snippets, search_results, search_results_urls, all_urls = asyncio.run(
+                        perform_search_with_reachability_check(search_response, current_num_results)
+                    )
+            except Exception as e:
+                logger.error(f"Error in search execution: {e}")
+                # Fallback to synchronous search without reachability checking
+                mentioned_url = extract_urls_from_query(query)
+                search_results_urls = []
+                search_snippets = []
+                search_results = []
+                all_urls = []
+                
+                for r in search_response:
+                    try:
+                        modified_query = modify_query_with_blacklist(r)
+                        results = websearcher.query_search(modified_query, num_results=current_num_results)
+                        logger.info(f"Fallback search results fetched for subquery: {r}")
+                    except Exception as e:
+                        logger.error(f"Error fetching search results for subquery '{r}': {e}")
+                        results = []
+                    
+                    # Add mentioned URLs as empty-snippet results
+                    for u in mentioned_url:
+                        results.append({'link': u, 'snippet': ''})
+                    
+                    try:
+                        urls = [s['link'] for s in results if 'link' in s]
+                        all_urls.extend(urls)
+                        search_results_urls.append(urls)
+                        search_snippets.extend(results)
+                    except Exception as e:
+                        logger.error(f"Error processing search results for subquery '{r}': {e}")
+                        search_snippets.extend(results)
+                    search_results = results
+                
+                # If we have URLs, break out of retry loop
+                if all_urls:
+                    logger.info(f"Fallback search successful with {len(all_urls)} URLs")
+                    break
+            
+            # Check URL reachability if we have URLs
+            if all_urls:
+                try:
+                    # Check reachability
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, check_urls_reachability(all_urls))
+                            reachability_map = future.result()
+                    else:
+                        reachability_map = asyncio.run(check_urls_reachability(all_urls))
+                    
+                    # Count reachable URLs
+                    reachable_urls = [url for url, is_reachable in reachability_map.items() if is_reachable]
+                    unreachable_urls = [url for url, is_reachable in reachability_map.items() if not is_reachable]
+                    
+                    logger.info(f"Reachability check: {len(reachable_urls)}/{len(all_urls)} URLs are reachable")
+                    
+                    # If we have reachable URLs, we're done
+                    if reachable_urls:
+                        logger.info(f"Found {len(reachable_urls)} reachable URLs, search successful")
+                        # Add unreachable domains to blacklist for future searches
+                        if unreachable_urls:
+                            add_domains_to_blacklist(unreachable_urls)
+                        break
+                    else:
+                        # All URLs are unreachable, add domains to blacklist and retry
+                        logger.warning(f"All {len(all_urls)} URLs are unreachable, adding domains to blacklist")
+                        add_domains_to_blacklist(all_urls)
+                        
+                        # If this was our last retry, break
+                        if retry_count >= max_retries:
+                            logger.error(f"Max retries ({max_retries}) reached, returning results anyway")
+                            break
+                        
+                        # Continue to next retry
+                        retry_count += 1
+                        logger.info(f"Retrying search with updated blacklist (attempt {retry_count + 1})")
+                        continue
+                        
+                except Exception as e:
+                    logger.error(f"Error checking URL reachability: {e}")
+                    # If reachability check fails, proceed with the URLs we have
+                    break
+            else:
+                # No URLs found, try next iteration if retries available
+                if retry_count >= max_retries:
+                    logger.warning("No URLs found after all retries")
+                    break
+                retry_count += 1
+                continue
+        
+        logger.info(f"Search completed after {retry_count + 1} attempts with {len(search_snippets)} snippets")
         return search_snippets, search_results, search_results_urls
+        
     except Exception as e:
         logger.error(f"Error in query_to_search_results: {e}")
         return [], [], []
