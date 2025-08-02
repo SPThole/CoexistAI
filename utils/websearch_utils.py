@@ -1061,7 +1061,7 @@ async def urls_to_docs(urls, local_mode=False, split=True):
     logger.info(f'Total URLs processed: {len(docs)}')
     return docs
 
-def youtube_transcript_response(query, task, model,n=3):
+async def youtube_transcript_response(query, task, model,n=3):
     overall_context = ''
     if "youtube.com" in query:
         try:
@@ -1077,11 +1077,15 @@ def youtube_transcript_response(query, task, model,n=3):
             except Exception as e:
                 logger.error(f"Error summarizing URL {url}: {e}")
                 return "Error generating summary."
-        response = model.invoke(prompt)
+        response = await model.ainvoke(prompt)
+        response = response.content
         overall_context = overall_context + f"\n\nVideo: {query}\nTranscript Summary: {response}\n\n"
     else:
-        
-        videos = json.loads(YoutubeSearch(query, max_results=10).to_json())['videos'][:n]
+        try:
+            videos = json.loads(YoutubeSearch(query, max_results=10).to_json())['videos'][:n]
+        except:
+            logger.error("error with youtube search")
+            return "Error generating summary."
         for k in videos:
             video_id = k['id']
             title = k['title']  
@@ -1100,7 +1104,8 @@ def youtube_transcript_response(query, task, model,n=3):
                 except:
                     logger.error("error with youtube video")
             try:
-                response = model.invoke(prompt)
+                response = await model.ainvoke(prompt)
+                response = response.content
             except:
                 logger.error("error with LLM")
             overall_context += f"\n\nVideo: {title} by {channel}\nURL: {url}\nTranscript Summary: {response}\n\n"
@@ -1146,7 +1151,7 @@ async def summary_of_url(query, url, model, local_mode=False):
         content= ''
         for d in docs:
             content = content + 'source:' + url  + '\n\ncontent:' + d.page_content
-        summary = model.invoke(f"Summarise the following content to answer {query}:\n{content}")
+        summary = await model.ainvoke(f"Summarise the following content to answer {query}:\n{content}")
         return summary.content
     except Exception as e:
         logger.error(f"Error summarizing URL {url}: {e}")
