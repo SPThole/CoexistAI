@@ -210,7 +210,7 @@ User Query: {request.query}
 Fetched Content: {content}
 """
 
-   result = llm.ainvoke(
+   result = await llm.ainvoke(
         prompt
     )
    return result.content
