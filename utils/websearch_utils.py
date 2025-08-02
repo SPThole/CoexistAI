@@ -1068,11 +1068,13 @@ async def youtube_transcript_response(query, task, model,n=3):
             md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
             result = md.convert(query)
             prompt = result.text_content 
+            prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
         except:
             try:
                 video_id = query.split("=")[1]
                 srt = YouTubeTranscriptApi.get_transcript(video_id)
                 transcript = ' '.join([s['text'] for s in srt])
+                logger.info(transcript)
                 prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
             except Exception as e:
                 logger.error(f"Error summarizing URL {url}: {e}")
@@ -1096,11 +1098,13 @@ async def youtube_transcript_response(query, task, model,n=3):
                 md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
                 result = md.convert(url)
                 prompt = result.text_content 
+                prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=prompt)
             except:
                 try:
                     srt = YouTubeTranscriptApi.get_transcript(video_id)
                     transcript = ' '.join([s['text'] for s in srt])
                     prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
+                    
                 except:
                     logger.error("error with youtube video")
             try:
