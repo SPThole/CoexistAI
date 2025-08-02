@@ -1061,25 +1061,25 @@ async def urls_to_docs(urls, local_mode=False, split=True):
     logger.info(f'Total URLs processed: {len(docs)}')
     return docs
 
-async def youtube_transcript_response(query, task, model,n=3):
+def youtube_transcript_response(query, task, model,n=3):
     overall_context = ''
     if "youtube.com" in query:
         try:
-            md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
-            result = md.convert(query)
-            prompt = result.text_content 
+            video_id = query.split("=")[1]
+            srt = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = ' '.join([s['text'] for s in srt])
+            logger.info(transcript)
             prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
         except:
             try:
-                video_id = query.split("=")[1]
-                srt = YouTubeTranscriptApi.get_transcript(video_id)
-                transcript = ' '.join([s['text'] for s in srt])
-                logger.info(transcript)
+                md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+                result = md.convert(query)
+                prompt = result.text_content 
                 prompt = prompts['youtube_summary_prompt'].format(task=task, transcript=transcript)
             except Exception as e:
                 logger.error(f"Error summarizing URL {url}: {e}")
                 return "Error generating summary."
-        response = await model.ainvoke(prompt)
+        response = model.invoke(prompt)
         response = response.content
         overall_context = overall_context + f"\n\nVideo: {query}\nTranscript Summary: {response}\n\n"
     else:
@@ -1108,7 +1108,7 @@ async def youtube_transcript_response(query, task, model,n=3):
                 except:
                     logger.error("error with youtube video")
             try:
-                response = await model.ainvoke(prompt)
+                response = model.invoke(prompt)
                 response = response.content
             except:
                 logger.error("error with LLM")
