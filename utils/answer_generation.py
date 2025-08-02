@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 date, day = get_local_data()
 
 
-def query_agent(query, llm, date, day):
+async def query_agent(query, llm, date, day):
     """
     Generates a list of subqueries based on a given query using an LLM agent.
 
@@ -61,7 +61,7 @@ def query_agent(query, llm, date, day):
 
     logger = logging.getLogger(__name__)
     try:
-        response = llm.with_structured_output(SearchSubqueries).invoke(
+        response = await llm.with_structured_output(SearchSubqueries).ainvoke(
             f"Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information. "
             f"\nquery: {query}"
         )
@@ -75,7 +75,8 @@ def query_agent(query, llm, date, day):
         logger.warning(f"Structured output failed: {e}. Falling back to prompt-based extraction.")
         try:
             prompt = prompts['query_agent_basic'].format(date=date, day=day, query=query)
-            response = llm.invoke(prompt).content
+            response = await llm.ainvoke(prompt)
+            response = response.content
             response = extract_subqueries(response.text)
         except Exception as ex:
             logger.error(f"Both structured and prompt-based extraction failed: {ex}")

@@ -851,7 +851,7 @@ async def query_web_response(
         tuple: Generated response, sources, search results, retrieved documents, and context.
     """
     try:
-        search_response,is_summary,is_covered_urls = query_agent(query, model, date, day)
+        search_response,is_summary,is_covered_urls = await query_agent(query, model, date, day)
         if len(search_response) == 0:
             search_response = [query]
             logger.info(f"Search response generated for query '{query}' using pure query.")
