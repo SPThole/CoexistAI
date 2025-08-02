@@ -210,7 +210,7 @@ User Query: {request.query}
 Fetched Content: {content}
 """
 
-   result = llm.invoke(
+   result = llm.ainvoke(
         prompt
     )
    return result.content
@@ -285,7 +285,7 @@ async def youtube_search(request: YouTubeSearchRequest):
     Returns:
         dict: response from the YouTube transcripts based on the given query"""
     # You may need to adjust the model argument as per your setup
-    result = youtube_transcript_response(
+    result = await youtube_transcript_response(
         request.query,
         request.prompt,
         n = request.n, #number of videos to summarise
@@ -368,7 +368,7 @@ User Query: {request.query}
 Agent Shorthand: {request.toolsshorthand}
 """
 
-    result = llm.invoke(
+    result = llm.ainvoke(
         system_prompt
     )
     return result.content
