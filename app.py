@@ -285,7 +285,7 @@ async def youtube_search(request: YouTubeSearchRequest):
     Returns:
         dict: response from the YouTube transcripts based on the given query"""
     # You may need to adjust the model argument as per your setup
-    result = await youtube_transcript_response(
+    result = youtube_transcript_response(
         request.query,
         request.prompt,
         n = request.n, #number of videos to summarise
