@@ -368,7 +368,7 @@ User Query: {request.query}
 Agent Shorthand: {request.toolsshorthand}
 """
 
-    result = llm.ainvoke(
+    result = await llm.ainvoke(
         system_prompt
     )
     return result.content
