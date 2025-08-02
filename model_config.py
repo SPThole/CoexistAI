@@ -48,8 +48,6 @@ model_config = {
         "timeout": None,     # Timeout for API requests (None for default).
         "max_retries": 2,    # Maximum number of retries for failed requests.
         "api_key": llm_api_key,  # API key for authentication.
-        # Only include 'generation_config' for Google LLMs.
-        'generation_config': {"response_mime_type": "application/json"}
     },
 
     # Name of the embedding model to use.
