@@ -1,22 +1,23 @@
 prompts = {
 
-'youtube_summary_prompt':"""Analyze and summarize the given transcript in detail, following these guidelines:
+'youtube_summary_prompt':"""Analyze and respond the task using the given transcript in detail, following these guidelines:
 
 1. Understand the user's intent and perspective.
 2. Focus on what would be most interesting and valuable to the user.
-3. Provide an informative, engaging summary with depth and insight.
+3. Provide an informative, engaging response with depth and insight.
 4. Use emojis to enhance readability and engagement.
 5. Adhere to the specific task: {task}
+6. Just focus on task, thats all, dont add additional details about video or creator unless asked.
 
 Transcript to summarize:
 {transcript}
 
-Remember to make the summary comprehensive, enjoyable to read, and tailored to the user's interests while addressing the specified task.
+Remember to make the response comprehensive, enjoyable to read, and tailored to the user's interests while addressing the specified task.
 """,
 
-'reddit_summary_prompt':"""Create a comprehensive summary of the following Reddit posts and comments, focusing on the objective: {search_query}
+'reddit_summary_prompt':"""Create a comprehensive response based on of the following Reddit posts and comments, focusing on the objective: {search_query}
 
-Please provide the summary, Cover everything, not just mostly talked things, give good detail about everything. 
+Please provide the comprehensive response.
 
 Guidelines:
 1. Follow the objective
@@ -33,7 +34,7 @@ IMPORTANT: Strictly adhere to the provided content. If no relevant discussions a
     
     Query:{query}""",
 
-"summary_generation":"""Your task is to generate detailed summary of the given documents wrt to answer user query :{query}
+"summary_generation":"""Your task is to generate detailed response/summary based on the given documents wrt to answer user query :{query}
           Documents: {comb_docs}
           """  ,
 
