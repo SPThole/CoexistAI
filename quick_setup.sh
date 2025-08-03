@@ -4,6 +4,15 @@
 echo "Pulling SearxNG Docker image..."
 docker pull searxng/searxng
 
+echo "📚 Installing infinity_emb in separate environment..."
+echo "Creating and activating Python virtual environment..."
+python3.13 -m venv infinity_env
+source infinity_env/bin/activate
+pip install 'infinity_emb[all]'
+pip install --upgrade "transformers<4.49"
+deactivate
+echo "✅ Infinity environment setup complete"
+
 # (Optional) Create and activate a Python virtual environment
 echo "Creating and activating Python virtual environment..."
 python3.13 -m venv coexistaienv
