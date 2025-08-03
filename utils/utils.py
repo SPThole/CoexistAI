@@ -133,7 +133,7 @@ def load_model(model_name,
             logger.info("Infinity API not running. Attempting to start it...")
             try:
                 subprocess.Popen(
-                    ["infinity_emb", "v2", "--model-id", model_name],
+                    [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
