@@ -140,7 +140,7 @@ def load_model(model_name,
                     )
                     time.sleep(30)
                     # Check if server started
-                    response = requests.get(f"{infinity_api_url}/health", timeout=2)
+                    response = requests.get(f"{infinity_api_url}/health", timeout=10)
                     if response.status_code != 200:
                         raise Exception("Infinity API health check failed after main start attempt")
                 except Exception as e:
@@ -159,7 +159,7 @@ def load_model(model_name,
                         )
                         time.sleep(30)
                         # Check again if the Infinity API server is running after fallback
-                        response = requests.get(f"{infinity_api_url}/health", timeout=2)
+                        response = requests.get(f"{infinity_api_url}/health", timeout=10)
                         if response.status_code != 200:
                             raise Exception("Infinity API health check failed after fallback start attempt")
                     except Exception as e2:
