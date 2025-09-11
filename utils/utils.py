@@ -13,6 +13,8 @@ import datetime
 import smtplib
 import logging
 import subprocess
+import shutil
+from pathlib import Path
 
 # Third-party imports
 import requests
@@ -125,49 +127,84 @@ def load_model(model_name,
     if _embed_mode == 'infinity_emb':
         infinity_api_url = "http://0.0.0.0:7997"
         # Check if the Infinity API server is running
+        def _start_infinity_with_poll(model_name, infinity_api_url, max_wait=120):
+            """
+            Try to start the infinity_emb binary and poll the health endpoint until ready.
+            Writes stdout/stderr to a logfile and returns the logfile path on success.
+            Raises RuntimeError on failure with path to logfile for debugging.
+            """
+            # Prepare logfile
+            artifacts_dir = Path(os.path.join(os.path.dirname(__file__), "..", "artifacts")).resolve()
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+            logfile = artifacts_dir / "infinity_emb.log"
+
+            # Locate binary
+            candidate = os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")
+            if not os.path.exists(candidate):
+                # fallback to PATH
+                candidate = shutil.which("infinity_emb")
+            if not candidate:
+                raise RuntimeError("infinity_emb binary not found (checked project path and PATH). Please install or provide the binary.")
+
+            # Start attempts with simple fallback sequence
+            cmds = [
+                [candidate, "v2", "--model-id", model_name],
+                [candidate, "v2" , "--model-id", model_name],
+            ]
+
+            # Open logfile in append mode so repeated runs keep history
+            with open(logfile, "ab") as lf:
+                for attempt, cmd in enumerate(cmds, start=1):
+                    logger.info(f"Starting infinity_emb (attempt {attempt}) with command: {cmd}")
+                    try:
+                        proc = subprocess.Popen(
+                            cmd,
+                            stdout=lf,
+                            stderr=lf,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to spawn infinity_emb process: {e}")
+                        continue
+
+                    # Poll health endpoint until ready or timeout
+                    start_t = time.time()
+                    while True:
+                        try:
+                            response = requests.get(f"{infinity_api_url}/health", timeout=3)
+                            if response.status_code == 200:
+                                logger.info("Infinity API is healthy and reachable.")
+                                return str(logfile)
+                        except Exception:
+                            # ignore connection errors while starting up
+                            pass
+
+                        # If process died, break and try next attempt
+                        if proc.poll() is not None:
+                            logger.warning(f"infinity_emb process exited prematurely (returncode={proc.returncode}). See logfile: {logfile}")
+                            break
+
+                        if time.time() - start_t > max_wait:
+                            logger.warning(f"Timeout waiting for Infinity API after {max_wait}s. Checking next attempt or failing. See logfile: {logfile}")
+                            break
+
+                        time.sleep(2)
+
+                # All attempts failed
+                raise RuntimeError(f"Infinity API failed to start or did not become healthy within allotted time. See logfile: {logfile}")
+
         try:
-            response = requests.get(f"{infinity_api_url}/health", timeout=2)
+            # initial quick check
+            response = requests.get(f"{infinity_api_url}/health", timeout=5)
             if response.status_code != 200:
                 raise Exception("Infinity API health check failed")
         except Exception:
-            logger.info("Infinity API not running. Attempting to start it...")
+            logger.info("Infinity API not running or not healthy. Attempting to start it (this can take up to 2 minutes)...")
             try:
-                try:
-                    proc_main = subprocess.Popen(
-                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    time.sleep(30)
-                    # Check if server started
-                    response = requests.get(f"{infinity_api_url}/health", timeout=10)
-                    if response.status_code != 200:
-                        raise Exception("Infinity API health check failed after main start attempt")
-                except Exception as e:
-                    logger.warning(f"Initial infinity_emb start failed: {e}. Trying fallback...")
-                    try:
-                        proc = subprocess.Popen(
-                            [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
-                        time.sleep(10)
-                        proc_fallback = subprocess.Popen(
-                            [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
-                        time.sleep(30)
-                        # Check again if the Infinity API server is running after fallback
-                        response = requests.get(f"{infinity_api_url}/health", timeout=10)
-                        if response.status_code != 200:
-                            raise Exception("Infinity API health check failed after fallback start attempt")
-                    except Exception as e2:
-                        logger.error("Infinity API still not running after fallback start attempt.")
-                        raise RuntimeError("Infinity API failed to start or is not reachable at http://0.0.0.0:7997")
+                logfile_path = _start_infinity_with_poll(model_name, infinity_api_url, max_wait=120)
+                logger.info(f"Started Infinity API; logs: {logfile_path}")
             except Exception as e:
                 logger.error(f"Failed to start Infinity API: {e}")
-                raise RuntimeError(f"Failed to start Infinity API: {e}")
+                raise RuntimeError(f"Failed to start Infinity API: {e}. Check the log at {str(Path(os.path.join(os.path.dirname(__file__), '..', 'artifacts', 'infinity_emb.log')).resolve())}")
         try:
             hf_embeddings = InfinityEmbeddings(
                 model=model_name, infinity_api_url=infinity_api_url
