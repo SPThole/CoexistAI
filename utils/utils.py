@@ -133,38 +133,40 @@ def load_model(model_name,
             logger.info("Infinity API not running. Attempting to start it...")
             try:
                 try:
-                    subprocess.Popen(
-                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    # Wait a few seconds for the server to start
-                    time.sleep(30)
-                except Exception as e:
-                    logger.warning(f"Initial infinity_emb start failed: {e}. Trying fallback...")
-                    # Try running infinity_emb for 10 seconds, then terminate, then rerun the main command
-                    proc = subprocess.Popen(
-                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    time.sleep(10)
-                    proc.terminate()
-                    time.sleep(2)
-                    subprocess.Popen(
+                    proc_main = subprocess.Popen(
                         [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
                     time.sleep(30)
-                # Check again if the Infinity API server is running after attempting to start it
-                try:
+                    # Check if server started
                     response = requests.get(f"{infinity_api_url}/health", timeout=2)
                     if response.status_code != 200:
-                        raise Exception("Infinity API health check failed after start attempt")
-                except Exception:
-                    logger.error("Infinity API still not running after start attempt.")
-                    raise RuntimeError("Infinity API failed to start or is not reachable at http://0.0.0.0:7997")
+                        raise Exception("Infinity API health check failed after main start attempt")
+                except Exception as e:
+                    logger.warning(f"Initial infinity_emb start failed: {e}. Trying fallback...")
+                    try:
+                        proc = subprocess.Popen(
+                            [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        time.sleep(10)
+                        proc.terminate()
+                        time.sleep(2)
+                        proc_fallback = subprocess.Popen(
+                            [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        time.sleep(30)
+                        # Check again if the Infinity API server is running after fallback
+                        response = requests.get(f"{infinity_api_url}/health", timeout=2)
+                        if response.status_code != 200:
+                            raise Exception("Infinity API health check failed after fallback start attempt")
+                    except Exception as e2:
+                        logger.error("Infinity API still not running after fallback start attempt.")
+                        raise RuntimeError("Infinity API failed to start or is not reachable at http://0.0.0.0:7997")
             except Exception as e:
                 logger.error(f"Failed to start Infinity API: {e}")
                 raise RuntimeError(f"Failed to start Infinity API: {e}")
