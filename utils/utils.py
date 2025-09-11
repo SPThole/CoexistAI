@@ -152,8 +152,6 @@ def load_model(model_name,
                             stderr=subprocess.DEVNULL,
                         )
                         time.sleep(10)
-                        proc.terminate()
-                        time.sleep(2)
                         proc_fallback = subprocess.Popen(
                             [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
                             stdout=subprocess.DEVNULL,
