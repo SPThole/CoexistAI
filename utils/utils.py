@@ -132,13 +132,31 @@ def load_model(model_name,
         except Exception:
             logger.info("Infinity API not running. Attempting to start it...")
             try:
-                subprocess.Popen(
-                    [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                # Wait a few seconds for the server to start
-                time.sleep(30)
+                try:
+                    subprocess.Popen(
+                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    # Wait a few seconds for the server to start
+                    time.sleep(30)
+                except Exception as e:
+                    logger.warning(f"Initial infinity_emb start failed: {e}. Trying fallback...")
+                    # Try running infinity_emb for 10 seconds, then terminate, then rerun the main command
+                    proc = subprocess.Popen(
+                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    time.sleep(10)
+                    proc.terminate()
+                    time.sleep(2)
+                    subprocess.Popen(
+                        [os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb"), "v2", "--model-id", model_name],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    time.sleep(30)
                 # Check again if the Infinity API server is running after attempting to start it
                 try:
                     response = requests.get(f"{infinity_api_url}/health", timeout=2)
