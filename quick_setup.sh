@@ -58,9 +58,11 @@ pip install -r ./requirements.txt
 # Check if wget is installed
 # Check if wget or curl is installed
 if command -v wget &> /dev/null; then
-  DOWNLOADER="wget -O"
+  DOWNLOADER_CMD="wget"
+  DOWNLOADER_ARGS="-O"
 elif command -v curl &> /dev/null; then
-  DOWNLOADER="curl -L -o"
+  DOWNLOADER_CMD="curl"
+  DOWNLOADER_ARGS="-L -o"
 else
   echo "Neither wget nor curl could be found, please install one to continue."
   exit 1
@@ -68,14 +70,14 @@ fi
 
 # Download kokoro-v1.0.onnx if not present
 if [ ! -f kokoro-v1.0.onnx ]; then
-  $DOWNLOADER kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+  $DOWNLOADER_CMD $DOWNLOADER_ARGS kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
 else
   echo "kokoro-v1.0.onnx already exists, skipping download."
 fi
 
 # Download voices-v1.0.bin if not present
 if [ ! -f voices-v1.0.bin ]; then
-  $DOWNLOADER voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+  $DOWNLOADER_CMD $DOWNLOADER_ARGS voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
 else
   echo "voices-v1.0.bin already exists, skipping download."
 fi
