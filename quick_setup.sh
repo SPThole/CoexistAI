@@ -10,6 +10,7 @@ python3.13 -m venv infinity_env
 source infinity_env/bin/activate
 pip install 'infinity_emb[all]'
 pip install --upgrade "transformers<4.49"
+pip install --upgrade "typer==0.19.1" "click>=8.1.3"
 deactivate
 echo "✅ Infinity environment setup complete"
 
