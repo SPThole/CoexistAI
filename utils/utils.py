@@ -150,6 +150,7 @@ def load_model(model_name,
             cmds = [
                 [candidate, "v2", "--model-id", model_name],
                 [candidate, "v2" , "--model-id", model_name],
+                [candidate, "v2" , "--model-id", model_name,"--device","cpu"],
             ]
 
             # Open logfile in append mode so repeated runs keep history
