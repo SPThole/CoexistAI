@@ -75,6 +75,7 @@ class SearchWeb:
             port (int): The port number for Searx search service.
             host (str): The host address for Searx search service.
         """
+        logger.info(f"SearX in {host}:{port}")
         self.searcher = SearxSearchWrapper(searx_host=f"http://{host}:{port}")
 
     def query_search(self, query, engines=['google'], num_results=5):

@@ -105,19 +105,43 @@ Example: I converted [this article](https://www.theatlantic.com/newsletters/arch
 
    > The script will:
    > - Pull the SearxNG Docker image
-   > - Create and activate a Python virtual environment
-   > - **USER ACTION NEEDED** Set your `GOOGLE_API_KEY` (edit the script to use your real key). [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider. (Only needed when google mode is set, else set in model_config.py)
-   > - Start the SearxNG Docker container
+   > - Install [infinity](https://github.com/michaelfeil/infinity) in a dedicated Python environment `infinity_env`
+   > - Create a Python virtual environment for CoexistAI in `coexist_env`
    > - Install Python dependencies
-   > - Start the FastAPI server
 
-4. **That’s it!**  
-   The FastAPI and MCP server will start automatically and you’re ready to go.
+4. **Run!**
+
+   Call `zsh quick_start.sh` or `bash quick_start.sh` to start the FastAPI server and MCP server.
 
 **Note:**  
 - Make sure Docker, Python 3, and pip are installed on your system.  
-- Edit quick_setup.sh to set your real `GOOGLE_API_KEY` before running (needed if using google models) 
-- Windows users can use [WSL](https://docs.microsoft.com/en-us/windows/wsl/) or Git Bash to run the script, or follow manual setup steps.
+- Edit  `quick_start.sh` to set your real `GOOGLE_API_KEY` before running (needed if using google models) 
+
+
+### Windows user
+
+On Windows:
+
+1. Run a Valkey container with instructions found [here](https://github.com/valkey-io/valkey-py)
+
+```
+docker run -p 6379:6379 -it valkey/valkey:latest
+```
+
+2. Run a SearXNG instance with the instructions [here](https://www.tanyongsheng.com/note/setting-up-searxng-on-windows-localhost-your-private-customizable-search-engine/).
+Make sure to enable JSON output in SearXNG (otherwise you will get a 403 Forbidden error each time).
+Make sure the instance work by visiting [this](http://localhost:8080/search?q=When%20was%20Napoleon%20born?&engines=google,brave&format=json) (you may need to change the port).
+
+3. In `model_config.py`, set `START_SEARXNG = 0` (since we are running our own instance) and the correct port in `PORT_NUM_SEARXNG`
+
+4. To install, run the following in Git Bash:
+```
+wget -q https://raw.githubusercontent.com/nathan818fr/vcvars-bash/refs/heads/main/vcvarsall.sh -O vcvarsall.sh
+eval "$(./vcvarsall.sh x64)"
+bash quick_setup.sh
+```
+
+5. To run, run `bash quick_start.sh` in Git Bash
 
 ---
 
