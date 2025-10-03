@@ -6,7 +6,12 @@ from pydantic import BaseModel
 from utils.utils import *
 from utils.map import *
 from utils.git_utils import *
-from utils.startup_banner import display_startup_banner, display_shutdown_banner
+from utils.startup_banner import display_startup_banner, display_shutdown_banner, get_ascii_banner
+import html as _html
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from uuid import uuid4
 import subprocess
 from utils.tts_utils import *
 from fastapi_mcp import FastApiMCP
@@ -14,10 +19,68 @@ import json
 import os
 import atexit
 from model_config import *
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from uuid import uuid4
+import time
 
+# Application state for startup/reload notifications
+app_state = {"status": "starting", "message": "Initializing components..."}
+
+
+def init_components():
+    """(Re)initialize model and embedding components from model_config. This is safe to call
+    at startup or after config reload. It updates module-level globals used by request handlers.
+    """
+    global llm, hf_embeddings, cross_encoder, text_splitter, searcher, date, day, llm_model_name, llm_type, llm_kwargs, embedding_model_name, embed_mode, cross_encoder_name
+
+    app_state['status'] = 'starting'
+    app_state['message'] = 'Loading models and embeddings (this may take a minute)...'
+    try:
+        # Read config values
+        llm_model_name = model_config.get("llm_model_name", llm_model_name if 'llm_model_name' in globals() else 'google/gemma-3-12b')
+        llm_type = model_config.get("llm_type", llm_type if 'llm_type' in globals() else 'local')
+        llm_kwargs = model_config.get("llm_kwargs", llm_kwargs if 'llm_kwargs' in globals() else {'temperature':0.1,'api_key': llm_api_key})
+
+        embedding_model_name = model_config.get("embedding_model_name", embedding_model_name if 'embedding_model_name' in globals() else 'models/embedding-001')
+        embed_mode = model_config.get("embed_mode", embed_mode if 'embed_mode' in globals() else 'google')
+        cross_encoder_name = model_config.get("cross_encoder_name", cross_encoder_name if 'cross_encoder_name' in globals() else 'BAAI/bge-reranker-base')
+
+        # instantiate generative LLM
+        llm = get_generative_model(
+            model_name=llm_model_name,
+            type=llm_type,
+            base_url=openai_compatible.get(llm_type, 'https://api.openai.com/v1'),
+            _tools=None,
+            kwargs=llm_kwargs
+        )
+
+        # load embeddings and cross-encoder
+        hf_embeddings, cross_encoder = load_model(embedding_model_name,
+                                                  _embed_mode=embed_mode,
+                                                  cross_encoder_name=cross_encoder_name,
+                                                  kwargs=model_config.get('embed_kwargs', {}))
+
+        text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
+
+        # recreate searxng searcher
+        searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
+
+        date, day = get_local_data()
+
+        app_state['status'] = 'ready'
+        app_state['message'] = 'Ready'
+    except Exception as e:
+        app_state['status'] = 'error'
+        app_state['message'] = f'Initialization failed: {e}'
+        # keep exception visible in logs
+        logger.exception('Failed to initialize components')
+        raise
+
+
+# Initialize components once at import/startup
+try:
+    init_components()
+except Exception:
+    # already logged; keep going so admin endpoints can be used to diagnose/fix
+    pass
 
 # Use config values for model and embedding paths
 llm_model_name = model_config.get("llm_model_name", 'google/gemma-3-12b')
@@ -36,24 +99,24 @@ llm_kwargs = model_config.get("llm_kwargs", {'temperature': 0.1,
 
 embed_kwargs = model_config.get("embed_kwargs", {})
 embedding_model_name = model_config.get("embedding_model_name", "models/embedding-001")
-embed_mode = model_config.get("embed_mode", "gemini")
+embed_mode = model_config.get("embed_mode", "google")
 cross_encoder_name = model_config.get("cross_encoder_name", "BAAI/bge-reranker-base")
 
 
 if not is_searxng_running():
-    subprocess.run([
-        "docker", "run", "-d",
-        "--name", "searxng",
-        "-p", f"{PORT_NUM_SEARXNG}:8080",
-        "-v", f"{os.getcwd()}/searxng:/etc/searxng:rw",
-        "-e", f"SEARXNG_BASE_URL=http://{HOST_SEARXNG}:{PORT_NUM_SEARXNG}/",
-        "-e", f"SEARXNG_PORT={PORT_NUM_SEARXNG}",
-        "-e", f"SEARXNG_BIND_ADDRESS={HOST_SEARXNG}",
-        "--restart", "unless-stopped",
-        "searxng/searxng:latest"
-    ])
+    # Running `docker` from inside a container is not supported in most environments
+    # (docker binary may not exist or there are permission restrictions). Instead,
+    # log a clear warning and let orchestration (docker-compose / external admin)
+    # manage the searxng service.
+    try:
+        logger.warning(f"SearxNG not reachable at {HOST_SEARXNG}:{PORT_NUM_SEARXNG}. Please start the searxng service (e.g. `docker compose up searxng`) or ensure it's reachable from this container.")
+    except Exception:
+        print(f"SearxNG not reachable at {HOST_SEARXNG}:{PORT_NUM_SEARXNG}. Please start searxng service.")
 else:
-    print("SearxNG docker container is already running.")
+    try:
+        logger.info("SearxNG is reachable.")
+    except Exception:
+        print("SearxNG docker container is already running.")
 
 llm = get_generative_model(
     model_name=llm_model_name,
@@ -73,6 +136,148 @@ text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
 date, day = get_local_data()
 app = FastAPI(title='coexistai')
+
+# Mount static files
+app.mount("/artifacts", StaticFiles(directory="artifacts"), name="artifacts")
+
+
+# --- Admin endpoints for runtime config reload/update ---------------------------------
+from fastapi import HTTPException, Depends
+
+
+def _check_admin_token(token: str = None):
+    # token supplied via header X-Admin-Token or env ADMIN_TOKEN
+    # FastAPI dependency will pass header automatically when named 'x_admin_token'
+    env_token = os.environ.get('ADMIN_TOKEN')
+    if env_token is None:
+        # no admin token configured; disallow by default to avoid accidental exposure
+        raise HTTPException(status_code=403, detail='Admin actions disabled (no ADMIN_TOKEN set)')
+    if token != env_token:
+        raise HTTPException(status_code=401, detail='Invalid admin token')
+    return True
+
+
+@app.post('/admin/reload-config')
+async def admin_reload_config(request: Request):
+    """Reload model config from the configured JSON file. Protected by ADMIN_TOKEN env var.
+    Send header 'X-Admin-Token: <token>' to authenticate. Returns the reloaded config on success.
+    """
+    token = request.headers.get('X-Admin-Token')
+    try:
+        _check_admin_token(token)
+    except HTTPException as e:
+        raise e
+
+    try:
+        new_cfg = reload_model_config()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Failed to reload config: {e}')
+
+    # apply config immediately
+    try:
+        init_components()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Config reloaded but applying failed: {e}')
+
+    return {"status": "ok", "model_config": new_cfg, "app_state": app_state}
+
+@app.post('/admin/update-config')
+async def admin_update_config(request: Request):
+    """Overwrite the config file with the posted JSON body. Protected by ADMIN_TOKEN.
+    Body must be a JSON object compatible with the config schema. Returns saved config on success.
+    """
+    token = request.headers.get('X-Admin-Token')
+    try:
+        _check_admin_token(token)
+    except HTTPException as e:
+        raise e
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail='Invalid JSON body')
+
+    cfg_path = os.environ.get('CONFIG_PATH', os.path.join(os.path.dirname(__file__), 'config', 'model_config.json'))
+    cfg_dir = os.path.dirname(cfg_path)
+    os.makedirs(cfg_dir, exist_ok=True)
+    try:
+        with open(cfg_path, 'w') as f:
+            json.dump(body, f, indent=2)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Failed to write config: {e}')
+
+    try:
+        new_cfg = reload_model_config(cfg_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Config saved but reload failed: {e}')
+
+    # apply new config immediately
+    try:
+        init_components()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Config saved but applying failed: {e}')
+
+    return {"status": "ok", "saved": cfg_path, "model_config": new_cfg, "app_state": app_state}
+
+# --------------------------------------------------------------------------------------
+
+
+@app.get('/admin', response_class=HTMLResponse)
+async def admin_page():
+    """Serve the static admin UI and inject the ASCII banner at request time.
+    The static UI lives at ./static/admin.html so it's easier to edit and keep
+    app.py small.
+    """
+    try:
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'admin.html')
+        with open(static_path, 'r', encoding='utf-8') as f:
+            html = f.read()
+    except Exception as e:
+        return HTMLResponse(content=f"<html><body>Error loading admin UI: {e}</body></html>", status_code=500)
+
+    # inject the ascii banner into the HTML, escaped for safety
+    try:
+        banner = get_ascii_banner() or ''
+        banner_html = _html.escape(banner)
+        html = html.replace('BANNER_PLACEHOLDER', banner_html)
+    except Exception:
+        pass
+    return HTMLResponse(content=html)
+
+
+@app.get('/status')
+async def status():
+        """Return basic app startup/reload status for UI and health checks."""
+        return app_state
+
+
+@app.get('/admin/config')
+async def admin_get_config():
+    """Return the effective model_config plus helper globals for the admin UI."""
+    # safe copy of model_config
+    cfg = dict(model_config)
+    # include openai_compatible and host/port defaults
+    def _mask(s):
+        try:
+            if not s:
+                return ''
+            s = str(s)
+            if len(s) <= 6:
+                return '*' * len(s)
+            return s[:3] + '...' + s[-3:]
+        except Exception:
+            return ''
+
+    cfg['_meta'] = {
+        'openai_compatible': openai_compatible,
+        'HOST_APP': globals().get('HOST_APP'),
+        'PORT_NUM_APP': globals().get('PORT_NUM_APP'),
+        'HOST_SEARXNG': globals().get('HOST_SEARXNG'),
+        'PORT_NUM_SEARXNG': globals().get('PORT_NUM_SEARXNG'),
+        'llm_api_key': _mask(globals().get('llm_api_key')),
+        'embed_api_key': _mask(globals().get('embed_api_key')),
+    }
+    return cfg
 
 # Register shutdown handler
 atexit.register(display_shutdown_banner)
