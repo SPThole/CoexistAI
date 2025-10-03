@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: coexistai_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app/
+      # Mount project root so users can edit model_config.py locally after pulling image
+    env_file:
+      - ./.env
+    environment:
+      # Inside the compose network the searxng service is reachable at hostname 'searxng' on port 8080
+      - HOST_SEARXNG=searxng
+      - PORT_NUM_SEARXNG=8080
+      # Ensure app binds to all interfaces inside the container (host access via localhost:8000)
+      - HOST_APP=0.0.0.0
+      - PORT_NUM_APP=8000
+    depends_on:
+      - searxng
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      # Base URL for external access (host) is http://localhost:8085/
+      - SEARXNG_BASE_URL=http://localhost:8085/
+      - SEARXNG_PORT=8085
+      - SEARXNG_BIND_ADDRESS=0.0.0.0
+      # For internal container-to-container calls use the service hostname and container port
+      - SEARXNG_BASE_URL_INTERNAL=http://searxng:8080/
