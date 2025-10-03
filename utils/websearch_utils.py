@@ -75,7 +75,22 @@ class SearchWeb:
             port (int): The port number for Searx search service.
             host (str): The host address for Searx search service.
         """
-        self.searcher = SearxSearchWrapper(searx_host=f"http://{host}:{port}")
+        # Build explicit base URL and pass to SearxSearchWrapper. Add debug logging
+        # so we can trace which host/port the application is actually using.
+        base_url = f"http://{host}:{port}"
+        self.searcher = SearxSearchWrapper(searx_host=base_url)
+        self.base_url = base_url
+        try:
+            logger.info(f"SearchWeb initialized with searx base_url={self.base_url}")
+            # Some wrappers may expose their configured host attribute; ensure it's set for visibility
+            if not hasattr(self.searcher, 'searx_host'):
+                try:
+                    setattr(self.searcher, 'searx_host', self.base_url)
+                except Exception:
+                    pass
+        except Exception:
+            # logging should not crash initialization
+            pass
 
     def query_search(self, query, engines=['google'], num_results=5):
         """
