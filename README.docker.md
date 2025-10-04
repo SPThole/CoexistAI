@@ -1,9 +1,9 @@
 ## CoexistAI — Docker Quickstart
 
-Short, step-by-step instructions for two ways to start CoexistAI. Pick either Method A (direct Docker Compose) or Method B (helper script).
+Short, step-by-step instructions for two ways to start CoexistAI. Pick either Method A (helper script) or Method B (direct Docker Compose).
 
 Prerequisites
-- Docker Engine and Docker Compose (v2) installed.
+- Docker Engine installed.
 
 Before you start (one-time)
 1. Open a terminal and change into the repository folder:
@@ -12,21 +12,56 @@ Before you start (one-time)
 cd /path/to/CoexistAI
 ```
 
-2. Copy the example env and set an admin token (required to edit config from the Admin UI):
+2. Edit the .env file for keys and admin token (which will be used while editing model params):
+
+
+Method A — Helper script (recommended for beginners)
+This script automates the compose start and waits until the app reports ready.
+
+1. Run the helper (from repo root):
 
 ```bash
-cp .env.example .env
-# Edit .env and set ADMIN_TOKEN to a secret value
+./start_and_wait.sh 
+```
+or 
+
+```bash       # default timeout 300s
+./start_and_wait.sh 600    # pass timeout in seconds (example: 600s = 10min)
 ```
 
-Method A — Direct Docker Compose (fast, manual)
-1. Start the stack (builds the image the first time):
+   For subsequent starts, run the script again (it detects the existing image and skips building/installing).
 
-```bash
-docker compose up -d --build
-```
+2. What the script does (so you know what to expect):
+- Checks if the Docker image 'coexistai-app' already exists; if yes, runs `docker compose up -d` (no build); if not, runs `docker compose up -d --build` to start containers detached.
+- Polls `http://localhost:8000/status` every few seconds and prints a spinner.
+- Exits with code 0 when the app reports `{"status":"ready"}`.
+- Exits non-zero if the app reports `error` or the timeout is reached.
 
-2. Wait a minute, then open the admin UI:
+3. After the script finishes successfully, open:
+
+- http://localhost:8000/admin
+
+When to use Method A: you're new to Docker or want a simple way to wait until the app is ready.
+
+
+Method B — Direct Docker Compose (fast, manual)
+1. Start the stack:
+
+   - **First time** (builds the image):
+     ```bash
+     docker compose up -d --build
+     ```
+
+   - **Subsequent times** (uses existing image):
+     ```bash
+     docker compose up -d
+     ```
+
+   To stop: `docker compose down`
+
+   To restart: `docker compose restart`
+
+2. Wait for ready signal in terminal where you ran docker compose, then open the admin UI:
 
 - http://localhost:8000/admin
 
@@ -46,28 +81,6 @@ curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8000/admin/reload
 ```
 
 When to use Method A: you prefer to run compose directly and watch logs yourself.
-
-Method B — Helper script (recommended for beginners)
-This script automates the compose start and waits until the app reports ready.
-
-1. Run the helper (from repo root):
-
-```bash
-./start_and_wait.sh        # default timeout 300s
-./start_and_wait.sh 600    # pass timeout in seconds (example: 600s = 10min)
-```
-
-2. What the script does (so you know what to expect):
-- Runs: `docker compose up -d --build` to start containers detached.
-- Polls `http://localhost:8000/status` every few seconds and prints a spinner.
-- Exits with code 0 when the app reports `{"status":"ready"}`.
-- Exits non-zero if the app reports `error` or the timeout is reached.
-
-3. After the script finishes successfully, open:
-
-- http://localhost:8000/admin
-
-When to use Method B: you're new to Docker or want a simple way to wait until the app is ready.
 
 Secrets (recommended pattern)
 - Do not store API keys in the repo. Use `.env` or file-backed secrets.

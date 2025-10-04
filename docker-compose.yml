@@ -2,7 +2,6 @@ version: '3.8'
 services:
   app:
     build: .
-    container_name: coexistai_app
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -23,7 +22,6 @@ services:
 
   searxng:
     image: searxng/searxng:latest
-    container_name: searxng
     restart: unless-stopped
     ports:
       - "8085:8080"
