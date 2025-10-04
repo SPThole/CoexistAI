@@ -1,0 +1,7 @@
+*.bin
+*.onnx
+*.log
+__pycache__/
+/chroma_db
+/vcvarsall.sh
+search_context.txt

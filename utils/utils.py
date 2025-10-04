@@ -125,7 +125,7 @@ def load_model(model_name,
 
     hf_embeddings = None
     if _embed_mode == 'infinity_emb':
-        infinity_api_url = "http://0.0.0.0:7997"
+        infinity_api_url = "http://localhost:7997"
         # Check if the Infinity API server is running
         def _start_infinity_with_poll(model_name, infinity_api_url, max_wait=120):
             """
@@ -140,6 +140,9 @@ def load_model(model_name,
 
             # Locate binary
             candidate = os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")
+            if not os.path.exists(candidate):
+                # fallback to Scripts
+                candidate = os.path.join(os.path.dirname(__file__), "..", "infinity_env", "Scripts", "infinity_emb.exe")
             if not os.path.exists(candidate):
                 # fallback to PATH
                 candidate = shutil.which("infinity_emb")
