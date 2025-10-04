@@ -41,6 +41,10 @@ or
 
 - http://localhost:8000/admin
 
+![Admin UI](./artifacts/admin_ui.png)
+
+- By default ADMIN_TOKEN=123456, you can change it via .env
+
    This opens the Admin UI, where you can edit model configurations, API keys, and reload settings without rebuilding the container.
 
 When to use Method A: you're new to Docker or want a simple way to wait until the app is ready.
