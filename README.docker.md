@@ -43,6 +43,8 @@ or
 
 ![Admin ui](./artifacts/admin_ui.png)
 
+- If using local models ignore api_keys fields
+
 - By default ADMIN_TOKEN=123456, you can change it via .env
 
    This opens the Admin UI, where you can edit model configurations, API keys, and reload settings without rebuilding the container.
