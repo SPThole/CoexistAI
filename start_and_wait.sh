@@ -5,7 +5,11 @@
 # start_and_wait.sh - start docker compose and wait until CoexistAI app reports ready
 # Usage: ./start_and_wait.sh
 set -euo pipefail
-COMPOSE_CMD="docker compose up -d --build"
+if docker image inspect coexistai-app > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose up -d"
+else
+    COMPOSE_CMD="docker compose up -d --build"
+fi
 TIMEOUT=${1:-300}  # seconds to wait (default 300s)
 INTERVAL=3
 
