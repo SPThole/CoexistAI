@@ -1,11 +1,11 @@
-## CoexistAI — Docker Quickstart
+# CoexistAI — Docker Quickstart
 
-Short, step-by-step instructions for two ways to start CoexistAI. Pick either Method A (helper script) or Method B (direct Docker Compose).
+### Short, step-by-step instructions for two ways to start CoexistAI. Pick either Method A (helper script) or Method B (direct Docker Compose).
 
-Prerequisites
+## Prerequisites
 - Docker Engine installed.
 
-Before you start (one-time)
+## Before you start (one-time)
 1. Open a terminal and change into the repository folder:
 
 ```bash
@@ -15,7 +15,7 @@ cd /path/to/CoexistAI
 2. Edit the .env file for keys and admin token (which will be used while editing model params):
 
 
-Method A — Helper script (recommended for beginners)
+## Method A — Helper script (recommended for beginners)
 This script automates the compose start and waits until the app reports ready.
 
 1. Run the helper (from repo root):
@@ -46,7 +46,7 @@ or
 When to use Method A: you're new to Docker or want a simple way to wait until the app is ready.
 
 
-Method B — Direct Docker Compose (fast, manual)
+## Method B — Direct Docker Compose (fast, manual)
 1. Start the stack:
 
    - **First time** (builds the image):
