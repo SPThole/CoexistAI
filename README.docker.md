@@ -41,7 +41,7 @@ or
 
 - http://localhost:8000/admin
 
-![Admin UI](./artifacts/admin_ui.png)
+![Admin ui](./artifacts/admin_ui.png)
 
 - By default ADMIN_TOKEN=123456, you can change it via .env
 
