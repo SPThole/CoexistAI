@@ -21,12 +21,12 @@ This script automates the compose start and waits until the app reports ready.
 1. Run the helper (from repo root):
 
 ```bash
-./start_and_wait.sh 
+./quick_setup_docker.sh 
 ```
 or 
 
 ```bash       # default timeout 300s
-./start_and_wait.sh 600    # pass timeout in seconds (example: 600s = 10min)
+./quick_setup_docker.sh 600    # pass timeout in seconds (example: 600s = 10min)
 ```
 
    For subsequent starts, run the script again (it detects the existing image and skips building/installing).
@@ -40,6 +40,8 @@ or
 3. After the script finishes successfully, open:
 
 - http://localhost:8000/admin
+
+   This opens the Admin UI, where you can edit model configurations, API keys, and reload settings without rebuilding the container.
 
 When to use Method A: you're new to Docker or want a simple way to wait until the app is ready.
 
@@ -93,11 +95,11 @@ Quick troubleshooting
 docker compose logs app --tail=200
 ```
 
-- App timed out in `start_and_wait.sh` or reports `error`? Inspect logs and increase timeout:
+- App timed out in `quick_setup_docker.sh` or reports `error`? Inspect logs and increase timeout:
 
 ```bash
 docker compose logs app --tail=400
-./start_and_wait.sh 600
+./quick_setup_docker.sh 600
 ```
 
 - Long model downloads or HF errors: allow more time on first start or mount `artifacts/` (HF cache) into the container to avoid repeated downloads.
@@ -114,10 +116,4 @@ curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8000/admin/reload
 # Follow logs interactively
 docker compose logs -f app --tail=200
 ```
-
-Security reminders
-- Never commit API keys. Keep `ADMIN_TOKEN` secret and use file-backed secrets for production.
-
-Add-ons
-- I can add a small `config/example.model_config.json` and a screenshot if you want a copy-paste example and visual cue.
 
