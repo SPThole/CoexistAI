@@ -1,0 +1,26 @@
+{
+  "llm_model_name": "jan-nano",
+  "llm_type": "local",
+  "embed_mode": "infinity_emb",
+  "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
+  "llm_kwargs": {
+    "temperature": 0.1,
+    "max_tokens": null,
+    "timeout": null,
+    "max_retries": 2
+  },
+  "embed_kwargs": {
+    "google_api_key": ""
+  },
+  "HOST_APP": "host.docker.internal",
+  "PORT_NUM_APP": 8000,
+  "HOST_SEARXNG": "searxng",
+  "PORT_NUM_SEARXNG": 8080,
+  "openai_compatible": {
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    "local": "http://host.docker.internal:1234/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    "openai": "https://api.openai.com/v1",
+    "others": "https://openrouter.ai/api/v1"
+  }
+}
