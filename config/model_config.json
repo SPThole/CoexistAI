@@ -13,13 +13,10 @@
     "google_api_key": ""
   },
   "HOST_APP": "host.docker.internal",
-  "_comment_HOST_APP": "Use 'localhost' if running outside Docker, 'host.docker.internal' if inside Docker",
   "PORT_NUM_APP": 8000,
   "HOST_SEARXNG": "searxng",
-  "_comment_HOST_SEARXNG": "Use 'localhost' if running outside Docker, 'searxng' if inside Docker",
   "PORT_NUM_SEARXNG": 8080,
   "openai_compatible": {
-    "_comment_baseurls_for_various_llm_providers": "These URLs are used to route requests based on the llm_type specified. if using any local servers using dockers use host.docker.internal else localhost",
     "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
     "local": "http://host.docker.internal:1234/v1",
     "groq": "https://api.groq.com/openai/v1",
