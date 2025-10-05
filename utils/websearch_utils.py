@@ -67,15 +67,31 @@ class SearchWeb:
         searcher (SearxSearchWrapper): An instance of SearxSearchWrapper for querying search engines.
     """
 
-    def __init__(self, port, host="localhost"):
+    def __init__(self, port, host="localhost", type='http'):
         """
         Initializes the SearchWeb class with the given Searx server port.
 
         Args:
             port (int): The port number for Searx search service.
             host (str): The host address for Searx search service.
+            type (str): The protocol type ('http' or 'https'). Defaults to 'http'.
         """
-        self.searcher = SearxSearchWrapper(searx_host=f"http://{host}:{port}")
+        # Build explicit base URL and pass to SearxSearchWrapper. Add debug logging
+        # so we can trace which host/port the application is actually using.
+        base_url = f"{type}://{host}:{port}"
+        self.searcher = SearxSearchWrapper(searx_host=base_url)
+        self.base_url = base_url
+        try:
+            logger.info(f"SearchWeb initialized with searx base_url={self.base_url}")
+            # Some wrappers may expose their configured host attribute; ensure it's set for visibility
+            if not hasattr(self.searcher, 'searx_host'):
+                try:
+                    setattr(self.searcher, 'searx_host', self.base_url)
+                except Exception:
+                    pass
+        except Exception:
+            # logging should not crash initialization
+            pass
 
     def query_search(self, query, engines=['google'], num_results=5):
         """
@@ -545,9 +561,9 @@ async def context_to_docs(
         profiler.end_step(f"Built final context with {len(final_context)} characters")
     
     # Periodic cleanup of old ChromaDB collections (10% chance)
-    if random.random() < 0.1:
+    if random.random() < 0.2:
         try:
-            await cleanup_old_collections_async(max_collections=20)
+            await cleanup_old_collections_async(max_collections=10)
             logger.info("Performed periodic ChromaDB collection cleanup")
         except Exception as e:
             logger.warning(f"ChromaDB cleanup failed: {e}")
@@ -1067,7 +1083,7 @@ async def query_web_response(
             response_1, sources = await response_gen(text_model, query, context)
         else:
             logger.info(f"Generating summary for query '{query}' using async summarizer.")
-            response_1 = await summarizer(query, total_docs, text_model, 16)
+            response_1 = await summarizer(query, total_docs, text_model, 4)
             sources = str(search_results_urls)
         logger.info(f"Async response generated for query '{query}'.")
         profiler.end_step(f"Generated response with {len(response_1)} characters")

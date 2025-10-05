@@ -75,13 +75,70 @@ def set_logging(enabled: bool):
         root_logger.addHandler(handler)
 
 def is_searxng_running():
-       result = subprocess.run(
-              ["docker", "ps", "--filter", "ancestor=searxng/searxng", "--format", "{{.ID}}"],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE,
-              text=True
-       )
-       return bool(result.stdout.strip())
+    """Check whether SearxNG is reachable.
+
+    Attempts:
+      - Use configured values from model_config or env.
+      - Try HTTP GET on likely paths (/, /search) with short retries.
+      - Fall back to a TCP socket connect.
+      - Try host.docker.internal as a fallback when container needs to reach services on the host.
+
+    Returns True if any probe succeeds.
+    """
+    # get configured host/port
+    try:
+        import model_config
+        host = getattr(model_config, 'HOST_SEARXNG', None)
+        port = getattr(model_config, 'PORT_NUM_SEARXNG', None)
+    except Exception:
+        host = None
+        port = None
+
+    if not host:
+        host = os.environ.get('HOST_SEARXNG', 'localhost')
+    if not port:
+        try:
+            port = int(os.environ.get('PORT_NUM_SEARXNG', 8085))
+        except Exception:
+            port = 8085
+
+    hosts_to_try = [host]
+    # If host is a container service name and doesn't work, host.docker.internal may help when service runs on host
+    if host not in ('host.docker.internal', '127.0.0.1', 'localhost'):
+        hosts_to_try.append('host.docker.internal')
+        hosts_to_try.append('127.0.0.1')
+        hosts_to_try.append('localhost')
+
+    paths = ['/', '/search']
+
+    # Try HTTP probes with small retry loop
+    for h in hosts_to_try:
+        for p in paths:
+            url = f"http://{h}:{port}{p}"
+            for attempt in range(3):
+                try:
+                    resp = requests.get(url, timeout=2)
+                    if resp.status_code < 500:
+                        logger.info(f"SearxNG reachable at {url} (status={resp.status_code})")
+                        return True
+                    else:
+                        logger.debug(f"SearxNG returned {resp.status_code} at {url}")
+                except Exception as e:
+                    logger.debug(f"SearxNG probe failed for {url}: {e}")
+                time.sleep(0.5)
+
+    # fallback to raw TCP connect
+    import socket
+    for h in hosts_to_try:
+        try:
+            with socket.create_connection((h, int(port)), timeout=2):
+                logger.info(f"SearxNG TCP connect succeeded to {h}:{port}")
+                return True
+        except Exception as e:
+            logger.debug(f"SearxNG TCP connect failed to {h}:{port}: {e}")
+
+    logger.warning(f"SearxNG not reachable at any tried addresses: hosts={hosts_to_try} port={port}")
+    return False
    
 def fix_json(json_str):
     """
@@ -138,13 +195,32 @@ def load_model(model_name,
             artifacts_dir.mkdir(parents=True, exist_ok=True)
             logfile = artifacts_dir / "infinity_emb.log"
 
-            # Locate binary
-            candidate = os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")
-            if not os.path.exists(candidate):
-                # fallback to PATH
-                candidate = shutil.which("infinity_emb")
+            # Locate binary. Try (in order): repo-relative venv, common install path, explicit env override, PATH
+            candidates = []
+            repo_candidate = os.path.join(os.path.dirname(__file__), "..", "infinity_env", "bin", "infinity_emb")
+            candidates.append(repo_candidate)
+            candidates.append('/opt/infinity_env/bin/infinity_emb')
+            # allow user to override with INFINITY_EMB_PATH
+            env_override = os.environ.get('INFINITY_EMB_PATH')
+            if env_override:
+                candidates.insert(0, env_override)
+
+            # finally, check PATH
+            path_candidate = shutil.which("infinity_emb")
+            if path_candidate:
+                candidates.append(path_candidate)
+
+            candidate = None
+            for c in candidates:
+                try:
+                    if c and os.path.exists(c):
+                        candidate = c
+                        break
+                except Exception:
+                    continue
+
             if not candidate:
-                raise RuntimeError("infinity_emb binary not found (checked project path and PATH). Please install or provide the binary.")
+                raise RuntimeError(f"infinity_emb binary not found. Checked: {candidates}. Please install infinity_emb or set INFINITY_EMB_PATH to the binary location.")
 
             # Start attempts with simple fallback sequence
             cmds = [

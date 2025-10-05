@@ -1,0 +1,601 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="        body {
+            background: linear-gradient(180deg, #050814 0%, var(--bg) 60%);
+            color: #e6eef8;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.5;
+        }
+        [data-theme="light"] body {
+            background: linear-gradient(180deg, #ffffff 0%, var(--bg) 60%);
+            color: #000000;
+        }  <title>CoexistAI Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #071025;
+            --panel: #0b1220;
+            --muted: #9fb7e6;
+            --accent: #60a5fa;
+            --glass: rgba(255,255,255,0.03);
+            --success: #9ad6a5;
+            --error: #f87171;
+        }
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --muted: #64748b;
+            --accent: #3b82f6;
+            --glass: rgba(0,0,0,0.03);
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+        [data-theme="light"] body {
+            color: #000000;
+        }
+        [data-theme="light"] .title h1 {
+            color: #000000;
+        }
+        [data-theme="light"] .title p {
+            color: #64748b;
+        }
+        [data-theme="light"] input[type="text"], [data-theme="light"] input[type="password"], [data-theme="light"] input[type="number"], [data-theme="light"] textarea {
+            background: #f1f5f9;
+            color: #1e293b;
+            border-color: rgba(0,0,0,0.1);
+        }
+        [data-theme="light"] input[type="text"]:focus, [data-theme="light"] input[type="password"]:focus, [data-theme="light"] input[type="number"]:focus, [data-theme="light"] textarea:focus {
+            border-color: var(--accent);
+        }
+        [data-theme="light"] .banner {
+            color: #334155;
+        }
+        [data-theme="light"] label {
+            color: #000000;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: linear-gradient(180deg, #050814 0%, var(--bg) 60%);
+            color: #e6eef8;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.5;
+        }
+        [data-theme="light"] body {
+            background: linear-gradient(180deg, #ffffff 0%, var(--bg) 60%);
+            color: #000000;
+        }
+        .wrap {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+        .card {
+            width: 100%;
+            max-width: 980px;
+            border-radius: 16px;
+            padding: 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            box-shadow: 0 10px 30px rgba(4,8,18,0.7);
+            border: 1px solid var(--glass);
+        }
+        [data-theme="light"] .card {
+            background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .status-bar {
+            background: var(--panel);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-bar.ready {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--success);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6b7280;
+        }
+        .status-dot.ready { background: var(--success); }
+        .status-dot.error { background: var(--error); }
+        .status-dot.starting { background: var(--accent); }
+        .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: linear-gradient(90deg, #0b1730, #071021);
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(2,6,23,0.5);
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .title {
+            text-align: center;
+        }
+        .title h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 800;
+            color: #dff3ff;
+            letter-spacing: 0.5px;
+        }
+        .title p {
+            margin: 4px 0 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .banner-box {
+            background: var(--panel);
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.02);
+            margin-bottom: 24px;
+        }
+        [data-theme="light"] .banner-box {
+            border-color: rgba(0,0,0,0.1);
+        }
+        .banner {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+            font-size: 12px;
+            color: #9ad0ff;
+            margin: 0;
+            text-align: center;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: 600;
+            color: #bcd7ff;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="password"], input[type="number"], textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.04);
+            background: #06101a;
+            color: #e9fbff;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .btn {
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #072037;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #3b82f6;
+        }
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--muted);
+        }
+        .btn.secondary:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .status {
+            margin-top: 16px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .note {
+            margin-top: 16px;
+            color: #9fb7e6;
+            font-size: 13px;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; text-align: center; }
+            .logo { width: 48px; height: 48px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="card">
+            <div class="header">
+                <div class="header-left">
+                    <img class="logo" src="/artifacts/logo.jpeg" alt="CoexistAI" onerror="this.onerror=null; this.src='/artifacts/v002mcplogo.jpeg'" />
+                    <div class="title">
+                        <h1>CoexistAI Admin</h1>
+                        <p>Configure your AI settings securely</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button id="theme-toggle" class="btn secondary" onclick="toggleTheme()">🌙 Dark</button>
+                    <div class="status-bar">
+                        <div id="status-dot" class="status-dot"></div>
+                        <span>Status: <span id="status-text">Loading...</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="banner-box">
+                <pre id="__BANNER__" class="banner">BANNER_PLACEHOLDER</pre>
+            </div>
+
+            <form id="cfgform" onsubmit="event.preventDefault(); save();">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="token">Admin Token</label>
+                        <input id="token" type="password" placeholder="Enter admin token" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm_model_name">LLM Model Name</label>
+                        <input id="llm_model_name" type="text" value="jan-nano" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm_type">LLM Type</label>
+                        <input id="llm_type" type="text" value="local" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm_tools">LLM Tools</label>
+                        <input id="llm_tools" type="text" value="" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="embed_mode">Embedding Mode</label>
+                        <input id="embed_mode" type="text" value="infinity_emb" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="embedding_model_name">Embedding Model Name</label>
+                        <input id="embedding_model_name" type="text" value="nomic-ai/nomic-embed-text-v1" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm_api_key">LLM API Key</label>
+                        <input id="llm_api_key" type="password" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="embed_api_key">Embed API Key</label>
+                        <input id="embed_api_key" type="password" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="HOST_APP">App Host</label>
+                        <input id="HOST_APP" type="text" value="host.docker.internal" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="PORT_NUM_APP">App Port</label>
+                        <input id="PORT_NUM_APP" type="number" value="8000" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="HOST_SEARXNG">SearxNG Host</label>
+                        <input id="HOST_SEARXNG" type="text" value="searxng" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="PORT_NUM_SEARXNG">SearxNG Port</label>
+                        <input id="PORT_NUM_SEARXNG" type="number" value="8080" />
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="openai_compatible">OpenAI Compatible Mapping (JSON)</label>
+                        <textarea id="openai_compatible" rows="8">{
+  "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+  "local": "http://host.docker.internal:1234/v1",
+  "groq": "https://api.groq.com/openai/v1",
+  "openai": "https://api.openai.com/v1",
+  "others": "https://openrouter.ai/api/v1"
+}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm_kwargs">LLM Kwargs (JSON)</label>
+                        <textarea id="llm_kwargs" rows="4">{
+  "temperature": 0.1,
+  "max_tokens": null,
+  "timeout": null,
+  "max_retries": 2
+}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="embed_kwargs">Embed Kwargs (JSON)</label>
+                        <textarea id="embed_kwargs" rows="4">{
+  "google_api_key": ""
+}</textarea>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="saveBtn" type="button" class="btn" onclick="save()">Save & Reload</button>
+                    <button id="reloadBtn" type="button" class="btn secondary" onclick="reload()">Reload from File</button>
+                    <div id="spinner" style="display:none" class="spinner"></div>
+                </div>
+            </form>
+
+            <div class="note">
+                <b>Note:</b> If you run a local service (like lmstudio) on your computer and the container cannot reach <code>127.0.0.1</code>, try using <code>host.docker.internal</code> as the host inside the config (e.g. <code>http://host.docker.internal:1234</code>).
+            </div>
+
+            <pre id="out" style="background:#071822;padding:8px;border:1px solid #0b2a33;max-width:90%;white-space:pre-wrap;color:#cfeef0;margin-top:16px;display:none;"></pre>
+        </div>
+    </div>
+
+<div style="margin-top:12px">Status: <span id="status">unknown</span> - <span id="message"></span></div>
+<pre id="out" style="background:#f4f4f4;padding:8px;border:1px solid #ddd;max-width:90%;white-space:pre-wrap;"></pre>
+
+<script>
+function toggleTheme() {
+    const html = document.documentElement;
+    const btn = document.getElementById('theme-toggle');
+    if (html.getAttribute('data-theme') === 'light') {
+        html.removeAttribute('data-theme');
+        btn.textContent = '🌙 Dark';
+    } else {
+        html.setAttribute('data-theme', 'light');
+        btn.textContent = '☀️ Light';
+    }
+}
+
+function maskSecrets(obj){
+    if(typeof obj !== 'object' || obj === null) return obj;
+    if(Array.isArray(obj)) return obj.map(maskSecrets);
+    const masked = {};
+    for(const [k, v] of Object.entries(obj)){
+        if(k.toLowerCase().includes('api_key') || k.toLowerCase().includes('key') || k.toLowerCase().includes('secret') || k.toLowerCase().includes('token')){
+            masked[k] = maskKey(v);
+        } else {
+            masked[k] = maskSecrets(v);
+        }
+    }
+    return masked;
+}
+
+async function loadConfig(){
+    try{
+        const r = await fetch('/admin/config');
+        const j = await r.json();
+        // basic fields
+        document.getElementById('llm_model_name').value = j.llm_model_name || 'jan-nano';
+        document.getElementById('llm_type').value = j.llm_type || 'local';
+        // llm_tools: accept array or string
+        try{
+            if(Array.isArray(j.llm_tools)){
+                document.getElementById('llm_tools').value = j.llm_tools.join(',');
+            } else {
+                document.getElementById('llm_tools').value = j.llm_tools || '';
+            }
+        }catch(e){ document.getElementById('llm_tools').value = j.llm_tools || ''; }
+        document.getElementById('embed_mode').value = j.embed_mode || 'infinity_emb';
+        document.getElementById('embedding_model_name').value = j.embedding_model_name || 'nomic-ai/nomic-embed-text-v1';
+        // kwargs fields - mask secrets
+        document.getElementById('llm_kwargs').value = JSON.stringify(maskSecrets(j.llm_kwargs || {"temperature":0.1,"max_tokens":null,"timeout":null,"max_retries":2}), null, 2);
+        document.getElementById('embed_kwargs').value = JSON.stringify(maskSecrets(j.embed_kwargs || {"google_api_key":""}), null, 2);
+        // secret keys - read masked values from meta
+        const meta = j._meta || {};
+        document.getElementById('llm_api_key').value = meta.llm_api_key || '';
+        document.getElementById('embed_api_key').value = meta.embed_api_key || '';
+        // meta
+        document.getElementById('HOST_APP').value = meta.HOST_APP || 'host.docker.internal';
+        document.getElementById('PORT_NUM_APP').value = meta.PORT_NUM_APP || 8000;
+        document.getElementById('HOST_SEARXNG').value = meta.HOST_SEARXNG || 'searxng';
+        document.getElementById('PORT_NUM_SEARXNG').value = meta.PORT_NUM_SEARXNG || 8080;
+        document.getElementById('openai_compatible').value = JSON.stringify(meta.openai_compatible || {"google":"https://generativelanguage.googleapis.com/v1beta/openai/","local":"http://host.docker.internal:1234/v1","groq":"https://api.groq.com/openai/v1","openai":"https://api.openai.com/v1","others":"https://openrouter.ai/api/v1"}, null, 2);
+    }catch(e){ console.error(e); }
+}
+
+async function save(){
+    const token = document.getElementById('token').value;
+    const body = {};
+    body.llm_model_name = document.getElementById('llm_model_name').value;
+    body.llm_type = document.getElementById('llm_type').value;
+    // llm_tools: allow JSON array or comma-separated
+    try{
+        const toolsVal = document.getElementById('llm_tools').value.trim();
+        if(!toolsVal) body.llm_tools = undefined;
+        else {
+            try{ body.llm_tools = JSON.parse(toolsVal); }
+            catch(e){ body.llm_tools = toolsVal.split(',').map(s=>s.trim()).filter(Boolean); }
+        }
+    }catch(e){ /* ignore */ }
+    body.embed_mode = document.getElementById('embed_mode').value;
+    body.embedding_model_name = document.getElementById('embedding_model_name').value;
+    // kwargs
+    try{
+        body.llm_kwargs = JSON.parse(document.getElementById('llm_kwargs').value || '{}');
+    }catch(e){ alert('Invalid JSON in LLM kwargs'); return; }
+    try{
+        body.embed_kwargs = JSON.parse(document.getElementById('embed_kwargs').value || '{}');
+    }catch(e){ alert('Invalid JSON in Embed kwargs'); return; }
+    // secret keys (optional)
+    body.llm_api_key = document.getElementById('llm_api_key').value || undefined;
+    body.embed_api_key = document.getElementById('embed_api_key').value || undefined;
+    // host/port
+    body.HOST_APP = document.getElementById('HOST_APP').value;
+    body.PORT_NUM_APP = parseInt(document.getElementById('PORT_NUM_APP').value) || undefined;
+    body.HOST_SEARXNG = document.getElementById('HOST_SEARXNG').value;
+    body.PORT_NUM_SEARXNG = parseInt(document.getElementById('PORT_NUM_SEARXNG').value) || undefined;
+    // openai_compatible
+    try{
+        body.openai_compatible = JSON.parse(document.getElementById('openai_compatible').value || '{}');
+    }catch(e){ alert('Invalid JSON in openai_compatible'); return; }
+
+    document.getElementById('out').textContent = 'Saving...';
+    // show spinner
+    document.getElementById('spinner').style.display = 'inline';
+    document.getElementById('saveBtn').disabled = true;
+    try{
+        const resp = await fetch('/admin/update-config', {method:'POST', headers:{'Content-Type':'application/json','X-Admin-Token': token}, body: JSON.stringify(body)});
+        if(resp.ok){
+            // wait for server to apply config and become ready
+            await pollStatus();
+            // reload effective config (this will provide masked keys in _meta)
+            await loadConfig();
+            document.getElementById('out').textContent = 'Saved and reloaded.';
+        } else {
+            const txt = await resp.text();
+            document.getElementById('out').textContent = 'Save failed: ' + txt;
+        }
+    }catch(e){ document.getElementById('out').textContent = 'Save failed: '+e; }
+    finally{
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('saveBtn').disabled = false;
+    }
+}
+
+async function checkStatus(){
+    try{
+        const r = await fetch('/status');
+        const j = await r.json();
+        document.getElementById('status-text').textContent = j.status;
+        document.getElementById('message').textContent = j.message;
+        if(j.status === 'ready'){
+            document.getElementById('status-dot').className = 'status-dot ready';
+            document.getElementById('status-bar').classList.add('ready');
+        } else if(j.status === 'error'){
+            document.getElementById('status-dot').className = 'status-dot error';
+            document.getElementById('status-bar').classList.remove('ready');
+        } else {
+            document.getElementById('status-dot').className = 'status-dot starting';
+            document.getElementById('status-bar').classList.remove('ready');
+        }
+    } catch(e){
+        document.getElementById('message').textContent = 'status check failed';
+        document.getElementById('status-dot').className = 'status-dot error';
+        document.getElementById('status-bar').classList.remove('ready');
+    }
+}
+
+async function checkStatus(){
+    try{
+        const r = await fetch('/status');
+        const j = await r.json();
+        document.getElementById('status-text').textContent = j.status;
+        document.getElementById('message').textContent = j.message;
+        if(j.status === 'ready'){
+            document.getElementById('status-dot').className = 'status-dot ready';
+            document.getElementById('status-bar').classList.add('ready');
+        } else if(j.status === 'error'){
+            document.getElementById('status-dot').className = 'status-dot error';
+            document.getElementById('status-bar').classList.remove('ready');
+        } else {
+            document.getElementById('status-dot').className = 'status-dot starting';
+            document.getElementById('status-bar').classList.remove('ready');
+        }
+    } catch(e){
+        document.getElementById('status-text').textContent = 'unknown';
+        document.getElementById('status-dot').className = 'status-dot';
+        document.getElementById('status-bar').classList.remove('ready');
+    }
+}
+
+// load config on page load
+(async ()=>{ 
+    await loadConfig(); 
+    try{ 
+        const r = await fetch('/status'); 
+        const j = await r.json(); 
+        document.getElementById('status-text').textContent = j.status;
+        document.getElementById('message').textContent = j.message;
+        if(j.status === 'ready'){
+            document.getElementById('status-dot').className = 'status-dot ready';
+            document.getElementById('status-bar').classList.add('ready');
+        } else if(j.status === 'error'){
+            document.getElementById('status-dot').className = 'status-dot error';
+            document.getElementById('status-bar').classList.remove('ready');
+        } else {
+            document.getElementById('status-dot').className = 'status-dot starting';
+            document.getElementById('status-bar').classList.remove('ready');
+        }
+    } catch(e){ 
+        document.getElementById('status-text').textContent = 'unknown';
+        document.getElementById('status-dot').className = 'status-dot';
+        document.getElementById('status-bar').classList.remove('ready');
+    }
+    // Check status every 10 seconds
+    setInterval(checkStatus, 10000);
+})();
+</script>
+</body>
+</html>

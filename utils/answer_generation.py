@@ -175,7 +175,7 @@ async def response_gen(model, query, context):
     return answer, sources
 
 
-async def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=6000):
+async def summarizer(query, docs, llm, batch,max_docs=30,max_words_per_doc=3000):
     """
     Summarizes a list of documents iteratively in batches using an LLM.
 

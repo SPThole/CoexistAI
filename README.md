@@ -6,25 +6,18 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
   <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
 </p>
 
-## 🎙️ Now Supporting Vibe Podcasting & Speech-to-Text!
-
-- **Text → Podcast**: Instantly turn any written content into engaging podcast episodes—ideal for on-the-go listening or repurposing your articles, notes, or blogs.
-- **Text → Speech**: Convert text into high-quality audio using advanced TTS technology. Check out the [Notebook](coexist_tutorial.ipynb) for usage examples.
-- **Flexible Integration**: Whether through FastAPI or MCP, you can generate audio files seamlessly—integrate with your agents or use as a standalone feature.
-
-Example: I converted [this article](https://www.theatlantic.com/newsletters/archive/2025/08/ai-high-school-college/684057/) to a podcast.  
-**[Listen to the podcast here](output/podcasts/podcast_58fc33d6.wav)**
-
-## Read More [Here](README_MCP.md)
-
-- **Direct location search:** You can now search for any place, not just find routes!
-- **Advanced Reddit search:** Use your own phrases to search across reddit; results ranked better with BM25 for sharper discovery.
-- **YouTube power-up:** Search and summarize YouTube using your own search phrases or video URLs and even add a prompt for custom responses.
-- **Explore to your folders/files**: Explore local folders and files with extended support to diverse files including (vision integrated)'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg', etc, more to come..
-- **Sharper web search:** More focused and actionable results than ever before.
-- **MCP support everywhere:** Now fully connect coexistai to LM Studio and other MCP hosts—seamless integration! [See Guide](README_MCP.md)
-- **GitHub & local repo explorer:** Explore ask questions about codebases - works with both GitHub and local repos!
-
+## 🎙️ New Features & Updates
+-  🔥 _Docker Installation available (Thanks for all the feedback, hope this makes installations easy)_. For a containerized setup with Docker, follow the instructions in [README.docker.md](README.docker.md).
+- **Text → Podcast**: Instantly turn written content into engaging podcast episodes—ideal for on-the-go listening or repurposing articles/notes/blogs. Example: Converted [this article](https://www.theatlantic.com/newsletters/archive/2025/08/ai-high-school-college/684057/) to a podcast. **[Listen here](output/podcasts/podcast_58fc33d6.wav)**
+- **Text → Speech**: Convert text to high-quality audio using advanced TTS. Check [Notebook](coexist_tutorial.ipynb) for examples.
+- **Flexible Integration**: Generate audio files via FastAPI or MCP—integrate with agents or use standalone.
+- **Direct Location Search**: Search for any place, not just routes.
+- **Advanced Reddit Search**: Custom phrases with BM25 ranking for sharper discovery.
+- **YouTube Power-Up**: Search/summarize videos or URLs with custom prompts.
+- **File/Folder Exploration**: Explore local folders/files with vision support for images (.png, .jpg, etc.).
+- **Sharper Web Search**: More focused, actionable results.
+- **MCP Support Everywhere**: Full integration with LM Studio and other MCP hosts. [See Guide](README_MCP.md)
+- **GitHub & Local Repo Explorer**: Ask questions about codebases (GitHub or local).
 
 ## 🚀 Features
 
@@ -43,6 +36,10 @@ Example: I converted [this article](https://www.theatlantic.com/newsletters/arch
 ## 🛠️ Installation
 **Prerequisite:** Make sure Docker is installed and the Docker daemon is running.
 
+### Method 1: Docker (Recommended) New 🔥 
+For a containerized setup with Docker, follow the instructions in [README.docker.md](README.docker.md). This method uses Method A (helper script) to automate the process and provides an Admin UI for easy configuration.
+
+### Method 2: Local Setup
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/SPThole/CoexistAI.git coexistai
@@ -51,45 +48,38 @@ Example: I converted [this article](https://www.theatlantic.com/newsletters/arch
 
 2. **Configure your model and embedding settings:**
    
-   - Edit `model_config.py` to set your preferred LLM and embedding model.
+   - [NEW] Edit `config/model_config.json` to set your preferred LLM and embedding model.
    - Edit above file to set your preferred SearxNG host and port (if needed)
    - Add LLM and Embedder API Key (for google mode both would be same)
    - Example (for full local mode):
-    ```py
-    model_config = {
-      # Name of the LLM model to use. For local models, use the model name served by your local server.
-      "llm_model_name": "google/gemma-3-12b",
-
-      # LLM provider type: choose from 'google', 'local', 'groq', or 'openai' or 'others' 
-      # in case of 'others' (base url needs to be updated in openai_compatible given below accordingly).
-      # Make sure to update the api_key variable above to match the provider.
-      "llm_type": "local",
-
-      # List of tools or plugins to use with the LLM, if any. Set to None if not used.
-      "llm_tools": None,
-
-      # Additional keyword arguments for LLM initialization.
-      "llm_kwargs": {
-        "temperature": 0.1,  # Sampling temperature for generation.
-        "max_tokens": None,  # Maximum number of tokens to generate (None for default).
-        "timeout": None,     # Timeout for API requests (None for default).
-        "max_retries": 2,    # Maximum number of retries for failed requests.
-        "api_key": llm_api_key,  # API key for authentication.
-      },
-
-      # Name of the embedding model to use.
-      # For Google, use their embedding model names. For local/HuggingFace, use the model path or name.
-      "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
-
-      "embed_kwargs":{}, #additional kwargs for embedding model initialization
-
-      # Embedding backend: 'google' for Google, 'infinity_emb' for local/HuggingFace models.
-      "embed_mode": "infinity_emb",
-
-      # Name of the cross-encoder model for reranking, typically a HuggingFace model.
-      "cross_encoder_name": "BAAI/bge-reranker-base"
+  
+  ```json
+  {
+    "llm_model_name": "jan-nano",
+    "llm_type": "local",  // based on baseurl dict given below
+    "embed_mode": "infinity_emb",
+    "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
+    "llm_kwargs": {
+      "temperature": 0.1,
+      "max_tokens": null,
+      "timeout": null,
+      "max_retries": 2
+    },
+    "embed_kwargs": {},
+    "llm_api_key": "dummy",
+    "HOST_APP": "localhost",
+    "PORT_NUM_APP": 8000,
+    "HOST_SEARXNG": "localhost",
+    "PORT_NUM_SEARXNG": 8080,
+    "openai_compatible": {
+      "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "local": "http://localhost:1234/v1",
+      "groq": "https://api.groq.com/openai/v1",
+      "openai": "https://api.openai.com/v1",
+      "others": "https://openrouter.ai/api/v1"
     }
-    ```
+  }
+  ```
    - See the file for all available options and defaults.
    - If you using others llm type, then check the openai_compatible url dict for others key, you can generally find it by "googling YOUR provider name openai api base compatilble url"
 
@@ -121,63 +111,7 @@ Example: I converted [this article](https://www.theatlantic.com/newsletters/arch
 
 ---
 
-### Method 2: Tedious but gives flexibility
-
-1. Clone repo
-```bash
-# Clone the repo
-git clone https://github.com/SPThole/CoexistAI.git
-cd CoexistAI
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-🔎 SearxNG Setup:
-
-CoexistAI can use a local or remote [SearxNG](https://github.com/searxng/searxng) instance for privacy-friendly, customizable web search aggregation.
-
-#### Install SearxNG (Docker recommended)
-
-
-```bash
-docker pull docker.io/searxng/searxng:latest
-```
-
-- By default, SearxNG will be available at `http://localhost:8080`.
-- You can edit `settings.yml` for advanced configuration (see `searxng/settings.yml` in this repo for a template).
-- if not just copy the folder searxng from this repo, at the same relative location in your machine
-
-3. Run the following command: 
-```bash
-docker run --rm \
-       -d -p 30:8080 \
-       -v "${PWD}/searxng:/etc/searxng" \
-       -e "BASE_URL=http://localhost:$PORT/" \
-       -e "INSTANCE_NAME=my-instance" \
-       searxng/searxng
-```
-
-4. Use SearxNG in Your Queries
-
-- The web search utilities will automatically use your configured SearxNG instance for search aggregation.
-- For best results, ensure SearxNG is running before starting the FastAPI server or using the Python API.
-
-5.  Enabling API
-
-#### Start the FastAPI server
-
-```bash
-uvicorn app:app --reload
-```
-
-If using local infinity embedding server (https://github.com/michaelfeil/infinity):
-
-```bash
-infinity_emb v2 --model-id hf_model_name
-```
-
-### Get Your API Key
+### Get Your API Key (optional if you want to use gemini llm/google embedders)
 
 [Obtain your API key (Currently Gemini, OpenAI and ollama is supported)](https://ai.google.dev/gemini-api/docs/api-key) from your preferred LLM provider. Once you have the key, update the `app.py` file or your environment variables as follows:
 
@@ -383,7 +317,7 @@ or:
 ```
 ---
 
-## 🧑‍💻 Usage in Python
+## 🧑‍💻 Usage in Python (use method 2 install else use requests to hit fastapi endpoints)
 - [see example notebook](coexist_tutorial.ipynb)
 
 - [Example Usage patterns](demo_queries.ipynb)
