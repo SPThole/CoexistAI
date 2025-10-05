@@ -560,9 +560,9 @@ async def context_to_docs(
         profiler.end_step(f"Built final context with {len(final_context)} characters")
     
     # Periodic cleanup of old ChromaDB collections (10% chance)
-    if random.random() < 0.1:
+    if random.random() < 0.2:
         try:
-            await cleanup_old_collections_async(max_collections=20)
+            await cleanup_old_collections_async(max_collections=10)
             logger.info("Performed periodic ChromaDB collection cleanup")
         except Exception as e:
             logger.warning(f"ChromaDB cleanup failed: {e}")
