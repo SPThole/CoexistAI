@@ -6,7 +6,7 @@ CoexistAI is a modular, developer-friendly research assistant framework. It enab
   <img src="artifacts/logo.jpeg" alt="CoexistAI Logo" width="200"/>
 </p>
 
-## 🎙️ New Features & Updates [Read More](README_MCP.md)
+## 🎙️ New Features & Updates
 -  🔥 _Docker Installation available (Thanks for all the feedback, hope this makes installations easy)_. For a containerized setup with Docker, follow the instructions in [README.docker.md](README.docker.md).
 - **Text → Podcast**: Instantly turn written content into engaging podcast episodes—ideal for on-the-go listening or repurposing articles/notes/blogs. Example: Converted [this article](https://www.theatlantic.com/newsletters/archive/2025/08/ai-high-school-college/684057/) to a podcast. **[Listen here](output/podcasts/podcast_58fc33d6.wav)**
 - **Text → Speech**: Convert text to high-quality audio using advanced TTS. Check [Notebook](coexist_tutorial.ipynb) for examples.
@@ -52,7 +52,8 @@ For a containerized setup with Docker, follow the instructions in [README.docker
    - Edit above file to set your preferred SearxNG host and port (if needed)
    - Add LLM and Embedder API Key (for google mode both would be same)
    - Example (for full local mode):
-    ```py
+  
+  ```json
   {
   "llm_model_name": "jan-nano", 
   "llm_type": "local", # based on baseurl dict given below
@@ -78,7 +79,7 @@ For a containerized setup with Docker, follow the instructions in [README.docker
     "others": "https://openrouter.ai/api/v1"
     }
     }
-    ```
+  ```
    - See the file for all available options and defaults.
    - If you using others llm type, then check the openai_compatible url dict for others key, you can generally find it by "googling YOUR provider name openai api base compatilble url"
 
