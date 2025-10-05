@@ -67,17 +67,18 @@ class SearchWeb:
         searcher (SearxSearchWrapper): An instance of SearxSearchWrapper for querying search engines.
     """
 
-    def __init__(self, port, host="localhost"):
+    def __init__(self, port, host="localhost", type='http'):
         """
         Initializes the SearchWeb class with the given Searx server port.
 
         Args:
             port (int): The port number for Searx search service.
             host (str): The host address for Searx search service.
+            type (str): The protocol type ('http' or 'https'). Defaults to 'http'.
         """
         # Build explicit base URL and pass to SearxSearchWrapper. Add debug logging
         # so we can trace which host/port the application is actually using.
-        base_url = f"http://{host}:{port}"
+        base_url = f"{type}://{host}:{port}"
         self.searcher = SearxSearchWrapper(searx_host=base_url)
         self.base_url = base_url
         try:
