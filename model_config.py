@@ -26,8 +26,8 @@ Attributes:
 ############## PORT and HOST SETTINGS (can be overridden via env vars)
 DEFAULT_PORT_NUM_SEARXNG = 8080
 DEFAULT_PORT_NUM_APP = 8000
-DEFAULT_HOST_APP = "localhost"
-DEFAULT_HOST_SEARXNG = "searxng" # Use container hostname in Docker
+DEFAULT_HOST_APP = "host.docker.internal" # Use host.docker.internal for Docker on Mac/Windows else localhost
+DEFAULT_HOST_SEARXNG = "searxng" # Use container hostname in Docker if running docker else localhost
 
 # Allow runtime or build-time overrides via environment variables
 PORT_NUM_SEARXNG = int(os.environ.get('PORT_NUM_SEARXNG', DEFAULT_PORT_NUM_SEARXNG))
