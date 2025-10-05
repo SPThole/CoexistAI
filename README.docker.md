@@ -29,7 +29,7 @@ or
 ./quick_setup_docker.sh 600    # pass timeout in seconds (example: 600s = 10min)
 ```
 
-   For subsequent starts, run the script again (it detects the existing image and skips building/installing).
+   For subsequent starts, run in similar way  (it detects the existing image and skips building/installing).
 
 2. What the script does (so you know what to expect):
 - Checks if the Docker image 'coexistai-app' already exists; if yes, runs `docker compose up -d` (no build); if not, runs `docker compose up -d --build` to start containers detached.
