@@ -1083,7 +1083,7 @@ async def query_web_response(
             response_1, sources = await response_gen(text_model, query, context)
         else:
             logger.info(f"Generating summary for query '{query}' using async summarizer.")
-            response_1 = await summarizer(query, total_docs, text_model, 16)
+            response_1 = await summarizer(query, total_docs, text_model, 4)
             sources = str(search_results_urls)
         logger.info(f"Async response generated for query '{query}'.")
         profiler.end_step(f"Generated response with {len(response_1)} characters")
