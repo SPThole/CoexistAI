@@ -55,29 +55,29 @@ For a containerized setup with Docker, follow the instructions in [README.docker
   
   ```json
   {
-  "llm_model_name": "jan-nano", 
-  "llm_type": "local", # based on baseurl dict given below
-  "embed_mode": "infinity_emb",
-  "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
-  "llm_kwargs": {
-                "temperature": 0.1,
-                "max_tokens": null,
-                "timeout": null,
-                "max_retries": 2
-                },
-  "embed_kwargs": {},
-  "llm_api_key": "dummy",
-  "HOST_APP": "localhost",
-  "PORT_NUM_APP": 8000,
-  "HOST_SEARXNG": "localhost",
-  "PORT_NUM_SEARXNG": 8080,
-  "openai_compatible": {
-                "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
-                "local": "http://localhost:1234/v1",
-                "groq": "https://api.groq.com/openai/v1",
-                "openai": "https://api.openai.com/v1",
-                "others": "https://openrouter.ai/api/v1"
-                  }
+    "llm_model_name": "jan-nano",
+    "llm_type": "local",  // based on baseurl dict given below
+    "embed_mode": "infinity_emb",
+    "embedding_model_name": "nomic-ai/nomic-embed-text-v1",
+    "llm_kwargs": {
+      "temperature": 0.1,
+      "max_tokens": null,
+      "timeout": null,
+      "max_retries": 2
+    },
+    "embed_kwargs": {},
+    "llm_api_key": "dummy",
+    "HOST_APP": "localhost",
+    "PORT_NUM_APP": 8000,
+    "HOST_SEARXNG": "localhost",
+    "PORT_NUM_SEARXNG": 8080,
+    "openai_compatible": {
+      "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "local": "http://localhost:1234/v1",
+      "groq": "https://api.groq.com/openai/v1",
+      "openai": "https://api.openai.com/v1",
+      "others": "https://openrouter.ai/api/v1"
+    }
   }
   ```
    - See the file for all available options and defaults.
