@@ -50,5 +50,5 @@ except Exception:
   sleep $INTERVAL
 done
 
-echo "Done: app is ready. You can open http://localhost:8000/admin"
+echo "Done: app is ready. Please open to change model configurations http://localhost:8000/admin, default ADMIN TOKEN is 123456, you can change from .env"
 exit 0
