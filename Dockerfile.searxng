@@ -1,0 +1,7 @@
+FROM searxng/searxng:latest
+
+# Copy custom settings
+COPY ./searxng/settings.yml /etc/searxng/settings.yml
+
+# Optionally copy other config files if needed
+# COPY ./searxng/uwsgi.ini /etc/searxng/uwsgi.ini
