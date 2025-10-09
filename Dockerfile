@@ -51,8 +51,9 @@ COPY ./ ./
 # Reproduce quick_setup.sh virtualenv installs inside the image (mirrors the script)
 # Create a separate infinity_env and install packages there to avoid conflicts as in the script
 RUN python3.13 -m venv /opt/infinity_env && \
-    /opt/infinity_env/bin/pip install --no-cache-dir 'infinity_emb[all]' && \
-    /opt/infinity_env/bin/pip install --no-cache-dir --upgrade "transformers<4.49" && \
+    /opt/infinity_env/bin/pip install --no-cache-dir 'infinity-emb[all]' && \
+    /opt/infinity_env/bin/pip install --no-cache-dir 'optimum==1.27.0' && \
+    /opt/infinity_env/bin/pip install --no-cache-dir 'transformers<4.49' && \
     /opt/infinity_env/bin/pip install --no-cache-dir --upgrade "typer==0.19.1" "click>=8.1.3" || true
 
 # Create a second venv similar to coexistaienv and install markitdown[all]
