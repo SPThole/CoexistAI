@@ -93,7 +93,7 @@ class SearchWeb:
             # logging should not crash initialization
             pass
 
-    def query_search(self, query, engines=['google'], num_results=3):
+    def query_search(self, query, engines=['google','brave','mullvadleta_google','mullvadleta_brave','duckduckgo','bing'], num_results=3):
         """
         Performs a search using the Searx engine and retrieves search results.
 
