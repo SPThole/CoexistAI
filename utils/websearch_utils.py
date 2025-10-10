@@ -93,7 +93,7 @@ class SearchWeb:
             # logging should not crash initialization
             pass
 
-    def query_search(self, query, engines=['google','brave','mullvadleta_google','mullvadleta_brave','duckduckgo','bing'], num_results=5):
+    def query_search(self, query, engines=['google'], num_results=3):
         """
         Performs a search using the Searx engine and retrieves search results.
 
@@ -1028,7 +1028,7 @@ async def query_web_response(
                 search_results = search_snippets_orig
                 search_results_urls = [extract_urls_from_query(query)]
             else:
-                if is_focused_on_urls:
+                if extract_urls_from_query(query) and is_focused_on_urls:
                     search_snippets_orig = []
                     for u in extract_urls_from_query(query):
                         search_snippets_orig.append({'snippet':'',

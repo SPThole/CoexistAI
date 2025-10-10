@@ -59,7 +59,7 @@ async def query_agent(query, llm, date, day):
             description="If user is asking to answer explicitly using youtube or reddit"
         )
         is_focused_on_given_urls: bool = Field(
-            description="If user is asking to answer/summarise from specific url/s"
+            description="It the intent of user is to focus on given urls only, like summarising, analysis, comparing etc of given urls"
         )
 
     logger = logging.getLogger(__name__)
