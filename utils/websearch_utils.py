@@ -977,7 +977,7 @@ async def query_web_response(
     
     try:
         profiler.start_step("query_agent", "Generating search queries from user input")
-        search_response,is_summary,is_covered_urls = await query_agent(query, model, date, day)
+        search_response,is_summary,is_covered_urls,is_focused_on_urls = await query_agent(query, model, date, day)
         profiler.end_step(f"Generated {len(search_response)} search queries")
         search_response.append(query)
         if len(search_response) == 0:
@@ -1028,9 +1028,18 @@ async def query_web_response(
                 search_results = search_snippets_orig
                 search_results_urls = [extract_urls_from_query(query)]
             else:
-                search_snippets_orig, search_results, search_results_urls = query_to_search_results(
-                    query, search_response, websearcher, num_results
-                )
+                if is_focused_on_urls:
+                    search_snippets_orig = []
+                    for u in extract_urls_from_query(query):
+                        search_snippets_orig.append({'snippet':'',
+                                                'link':u,
+                                                'title':u})
+                    search_results = search_snippets_orig
+                    search_results_urls = [extract_urls_from_query(query)]
+                else:
+                    search_snippets_orig, search_results, search_results_urls = query_to_search_results(
+                        query, search_response, websearcher, num_results
+                    )
             search_snippets = text_to_docs(search_snippets_orig)
             try:
                 search_snippets_orig = {k['link']: k['snippet'] for k in search_snippets_orig if 'link' in k.keys()}

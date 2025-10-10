@@ -58,6 +58,9 @@ async def query_agent(query, llm, date, day):
         is_covered_urls: bool = Field(  
             description="If user is asking to answer explicitly using youtube or reddit"
         )
+        is_focused_on_given_urls: bool = Field(
+            description="If user is asking to answer/summarise from specific url/s"
+        )
 
     logger = logging.getLogger(__name__)
     try:
@@ -69,8 +72,10 @@ async def query_agent(query, llm, date, day):
         if response.is_structured_data:
             is_summary = True
         is_covered_urls = response.is_covered_urls
+        is_focused_on_given_urls = response.is_focused_on_given_urls
         response = response.subqueries
-        logger.info(f"Summary:{is_summary},subquery:{response}, iscoverd:{is_covered_urls}")
+
+        logger.info(f"Summary:{is_summary},subquery:{response}, iscoverd:{is_covered_urls}, isfocused:{is_focused_on_given_urls}")
     except Exception as e:
         logger.warning(f"Structured output failed: {e}. Falling back to prompt-based extraction.")
         try:
@@ -78,6 +83,7 @@ async def query_agent(query, llm, date, day):
             response = await llm.ainvoke(prompt)
             response = response.content
             response = extract_subqueries(response.text)
+            return response, False,False,False
         except Exception as ex:
             logger.error(f"Both structured and prompt-based extraction failed: {ex}")
             return []
@@ -89,7 +95,7 @@ async def query_agent(query, llm, date, day):
     except Exception as e:
         logger.error(f"Error cleaning subqueries: {e}")
         return []
-    return response, is_summary,is_covered_urls
+    return response, is_summary,is_covered_urls,is_focused_on_given_urls
 
 
 async def response_gen(model, query, context):
