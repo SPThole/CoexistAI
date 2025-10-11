@@ -93,7 +93,7 @@ class SearchWeb:
             # logging should not crash initialization
             pass
 
-    def query_search(self, query, engines=['google','brave','mullvadleta_google','mullvadleta_brave','duckduckgo','bing'], num_results=3):
+    def query_search(self, query, engines=['google','brave','duckduckgo','startpage','yahoo'], num_results=3):
         """
         Performs a search using the Searx engine and retrieves search results.
 
@@ -772,6 +772,8 @@ def query_to_search_results(query, search_response, websearcher, num_results=3, 
         
         for r in search_queries:
             try:
+                # Randomized delay between outbound queries to reduce rate-limit blocking
+                await asyncio.sleep(random.uniform(1.0, 2.0))
                 # Modify query to exclude blacklisted domains
                 modified_query = modify_query_with_blacklist(r)
                 results = websearcher.query_search(modified_query, num_results=current_num_results)
@@ -842,6 +844,7 @@ def query_to_search_results(query, search_response, websearcher, num_results=3, 
                 
                 for r in search_response:
                     try:
+                        time.sleep(random.uniform(0.5, 1.0))
                         modified_query = modify_query_with_blacklist(r)
                         results = websearcher.query_search(modified_query, num_results=current_num_results)
                         logger.info(f"Fallback search results fetched for subquery: {r}")

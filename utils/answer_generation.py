@@ -34,7 +34,7 @@ async def query_agent(query, llm, date, day):
         Avoid including the date if not necessary.
         Emphasize date or location when needed.
         When breaking down into multiple tasks, always consider the overall task to ensure every aspect is included. By the end of searching for subqueries, there should be enough information to process the answer.
-        If necessary, split the query into up to 2 diverse subqueries to cover all aspects.
+        If necessary, split the query into diverse subqueries to cover all aspects.
         Subqueries should not be in a numbered list.
         Plan searches to answer every part of the query without overemphasizing any term.
         Ensure that subqueries include essential keywords and context from the original query to maintain relevance. Every query will be searched independently, so ensure that each subquery is self-contained and can be understood without additional context.
@@ -44,10 +44,10 @@ async def query_agent(query, llm, date, day):
         """ + "Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information.",
 
         planning_to_answer_query_to_help_finding_subqueries: list[str] = Field(
-            description="Up to 6 sub-tasks, breaking down the task without overemphasizing any keyword, Context: Today's date is {date} {day}, {place}. These tasks are being given to different agents, so each task description should be self sufficient with all details. Avoid sequntial tasks, break it down into parallel tasks."
+            description="Based on query complexity, generate 1 (min) to 6 (max) sub-tasks (6 for complex queries, 1 for simple ones), breaking down the task into parallel, self-sufficient descriptions for independent agents. Avoid overemphasizing keywords and sequential dependencies. Context: Today's date is {date} {day}, {place}."
         )
         subqueries: list[str] = Field(
-            description="Up to 6 rephrased phrases covering all planning steps in independent search phrases , using a maximum of 6 words per subquery, include all details for the subtasks based on query, Context: Today's date is {date} {day}, {place}"
+            description="Generate 1 (min) to 6 (max) subqueries (1 for simple queries, up to 6 for complex ones), each as a rephrased, independent search phrase with a maximum of 6 words, covering all aspects of the query. Include essential details and context from the original query. Context: Today's date is {date} {day}, {place}."
         )
         is_summary: bool = Field(
             description="Whether the subqueries are intended to summarize. Generally, for the subqueries focused on structured data, tables, list, codes. You SHOULD use summarise!"
