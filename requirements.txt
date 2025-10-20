@@ -40,3 +40,4 @@ slowapi
 charset-normalizer
 kokoro-onnx
 soundfile
+langchain-chroma
