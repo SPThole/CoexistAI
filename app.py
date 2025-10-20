@@ -7,6 +7,8 @@ from utils.utils import *
 from utils.map import *
 from utils.git_utils import *
 from utils.startup_banner import display_startup_banner, display_shutdown_banner, get_ascii_banner
+from utils.knowledge_base import create_knowledge_base
+from utils.crawler_utils import crawl_and_create_kb
 import html as _html
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -20,6 +22,8 @@ import os
 import atexit
 from model_config import *
 import time
+from typing import List, Optional, Union
+from utils.knowledge_base import create_knowledge_base
 
 # Application state for startup/reload notifications
 app_state = {"status": "starting", "message": "Initializing components..."}
@@ -58,7 +62,7 @@ def init_components():
                                                   cross_encoder_name=cross_encoder_name,
                                                   kwargs=model_config.get('embed_kwargs', {}))
 
-        text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
+        text_splitter = TokenTextSplitter(chunk_size=128, chunk_overlap=32)
 
         # recreate searxng searcher
         searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
@@ -254,8 +258,7 @@ async def status():
 @app.get('/admin/config')
 async def admin_get_config():
     """Return the effective model_config plus helper globals for the admin UI."""
-    # safe copy of model_config
-    cfg = dict(model_config)
+    # safe copy of model
     # include openai_compatible and host/port defaults
     def _mask(s):
         try:
@@ -305,6 +308,8 @@ class WebSearchRequest(BaseModel):
     local_mode: bool = False
     split: bool = True
     document_paths: list[str] = []  # List of paths for local documents
+    vectordb: str = ""  # Optional vector database name to use instead of search
+    quick_answer: bool = False  # Whether to force quick answer mode (disables summary mode)
 
 class YouTubeSearchRequest(BaseModel):
     query: str
@@ -366,6 +371,19 @@ class BasicTTSRequest(BaseModel):
     voice: str = "am_santa"
     lang: str = "en-us"
     filename: str = ""
+
+class KnowledgeBaseRequest(BaseModel):
+    document_paths: list[str]  # List of paths to create knowledge base from
+
+class CrawlerRequest(BaseModel):
+    url_or_urls: Union[str, List[str]]  # Single URL to crawl or list of URLs to scrape
+    keywords: Optional[List[str]] = [""]  # Optional keywords to filter content
+    depth: Optional[int] = None  # Crawl depth for crawling (None for full website crawl)
+    crawl: bool = True  # Whether to crawl (True) or process URLs directly (False)
+    min_delay: float = 1.0  # Minimum delay between requests in seconds
+    max_delay: float = 2.0  # Maximum delay between requests in seconds
+    max_pages: int = 10000  # Maximum number of pages to collect during crawling
+    url_keyword: Optional[str] = ""  # Optional keyword to filter URLs by presence in the URL string
 
 @app.post('/clickable-elements', operation_id="get_website_structure")
 async def get_website_structure(request: ClickableElementRequest):
@@ -454,6 +472,8 @@ async def websearch(request: WebSearchRequest):
         document_paths (list of str, optional): List of paths for local documents/folders. Defaults to empty list. for an example [path1,path2,path3]. if different tasks are related to different documents
         local_mode (bool, optional): Whether to process local documents. Defaults to False.
         split (bool, optional): Whether to split documents into chunks. Defaults to True.
+        vectordb (str, optional): Name of an existing vector database to query instead of performing search. Defaults to None.
+        quick_answer (bool, optional): Whether to force quick answer mode (disables summary mode). Defaults to False.
 
     Returns:
         str: Generated response to query based on the retrieved and reranked search results and sources
@@ -474,11 +494,68 @@ async def websearch(request: WebSearchRequest):
             num_results=min(2,request.num_results),
             document_paths=request.document_paths,
             local_mode=request.local_mode,
-            split=request.split
+            split=request.split,
+            vectordb=request.vectordb,
+            quick_answer=request.quick_answer
         )
         return "result:" + result[0] + '\n\nsources:' + result[1]
     except:
         return "No Websites found, Try rephrasing query"
+
+@app.post('/create-knowledge-base', operation_id="get_knowledge_base")
+async def create_kb(request: KnowledgeBaseRequest):
+    """
+    Creates a knowledge base from the provided document paths.
+    Processes all files in the paths, embeds them, and saves to a vector database.
+
+    Args:
+        document_paths (list of str): List of paths to folders or files to include in the knowledge base.
+
+    Returns:
+        str: The name of the created vector database collection.
+    """
+    try:
+        collection_name = await create_knowledge_base(
+            document_paths=request.document_paths,
+            hf_embeddings=hf_embeddings
+        )
+        return f"Knowledge base created successfully. Collection name: {collection_name}"
+    except Exception as e:
+        return f"Error creating knowledge base: {str(e)}"
+
+@app.post('/crawl-and-create-knowledge-base', operation_id="get_crawled_knowledge_base")
+async def crawl_kb(request: CrawlerRequest):
+    """
+    Crawls a website or processes a list of URLs and creates a knowledge base from the content.
+    
+    Args:
+        url_or_urls: Single URL to crawl or list of URLs to scrape directly
+        keywords: Optional list of keywords to filter content by
+        depth: Maximum crawl depth for crawling (None for full website crawl)
+        crawl: Whether to crawl (True) or process URLs directly (False)
+        min_delay: Minimum delay between requests in seconds (default: 1.0)
+        max_delay: Maximum delay between requests in seconds (default: 3.0)
+        max_pages: Maximum number of pages to collect during crawling (default: 100)
+        url_keyword: Optional keyword to filter URLs by presence in the URL string
+        
+    Returns:
+        str: Message with the collection name and list of scraped URLs.
+    """
+    try:
+        collection_name, scraped_urls = await crawl_and_create_kb(
+            url_or_urls=request.url_or_urls,
+            keywords=request.keywords,
+            depth=request.depth,
+            crawl=request.crawl,
+            min_delay=request.min_delay,
+            max_delay=request.max_delay,
+            max_pages=request.max_pages,
+            url_keyword=request.url_keyword,
+            hf_embeddings=hf_embeddings
+        )
+        return f"Crawled knowledge base created successfully. Collection name: {collection_name}. Scraped URLs: {scraped_urls}"
+    except Exception as e:
+        return f"Error creating crawled knowledge base: {str(e)}"
 
 @app.post('/web-summarize', operation_id="get_web_summarize")
 async def websummarize(request: WebSummarizeRequest):
