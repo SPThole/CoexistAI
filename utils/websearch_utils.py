@@ -20,8 +20,8 @@ from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.utilities import SearxSearchWrapper
-from langchain_community.vectorstores import Chroma
-from langchain_text_splitters import MarkdownHeaderTextSplitter, TokenTextSplitter
+from langchain_chroma import Chroma
+from langchain_text_splitters import MarkdownHeaderTextSplitter, TokenTextSplitter, RecursiveCharacterTextSplitter
 from markdownify import markdownify as md
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_search import YoutubeSearch
@@ -37,6 +37,7 @@ from utils.profiler_utils import WebSearchProfiler, get_profiler, set_profiler
 
 
 import chromadb
+from chromadb.config import Settings
 
 from utils.utils import *
 from utils.answer_generation import *
@@ -56,6 +57,8 @@ if not logger.hasHandlers():
 
 # Global blacklist for unreachable domains
 UNREACHABLE_DOMAINS_BLACKLIST = set()
+
+# No in-memory caching for retrievers/rerankers; always create fresh instances per request
 
 
 class SearchWeb:
@@ -192,7 +195,8 @@ async def process_url(
     search_snippets_orig,
     model,
     local_mode=False,
-    split=True
+    split=True,
+    docs=None,
 ):
     """
     Processes a single URL by retrieving documents, splitting text, and ranking the content.
@@ -225,25 +229,28 @@ async def process_url(
     if profiler:
         profiler.start_url_processing(url)
     
-    try:
-        # Use async document retrieval
-        doc_retrieval_start = time.time()
-        docs = await urls_to_docs([url], local_mode=local_mode, split=split)
-        doc_retrieval_time = time.time() - doc_retrieval_start
-        logger.info(f"Processed {len(docs)} docs for URL: {url} in {doc_retrieval_time:.3f}s")
-    except Exception as e:
-        logger.error(f"Error processing {url}: {e}")
-        # Track failed URL processing
-        profiler = get_profiler()
-        if profiler:
-            profiler.end_url_processing(
-                url=url, 
-                docs_count=0, 
-                context_length=0, 
-                status="failed", 
-                error=str(e)
-            )
-        return None, None, None, url
+    # If docs are not provided, fetch them (backwards-compatible).
+    if docs is None:
+        try:
+            doc_retrieval_start = time.time()
+            # urls_to_docs now returns a dict mapping url->docs
+            docs_map = await urls_to_docs([url], local_mode=local_mode, split=split)
+            docs = docs_map.get(url, [])
+            doc_retrieval_time = time.time() - doc_retrieval_start
+            logger.info(f"Processed {len(docs)} docs for URL: {url} in {doc_retrieval_time:.3f}s")
+        except Exception as e:
+            logger.error(f"Error processing {url}: {e}")
+            # Track failed URL processing
+            profiler = get_profiler()
+            if profiler:
+                profiler.end_url_processing(
+                    url=url, 
+                    docs_count=0, 
+                    context_length=0, 
+                    status="failed", 
+                    error=str(e)
+                )
+            return None, None, None, url
 
     for i, d in enumerate(docs):
         if not local_mode:
@@ -279,8 +286,9 @@ async def process_url(
 
     if split:
         try:
-            docs = text_splitter.split_documents(docs)
-            logger.info(f"Split docs for {url} into {len(docs)} chunks")
+            # docs = text_splitter.split_documents(docs)
+            # logger.info(f"Split docs for {url} into {len(docs)} chunks")
+            logger.info(f"Average words per chunk: {sum(len(d.page_content.split()) for d in docs) / len(docs):.1f}")
         except Exception as e:
             logger.error(f"Error splitting docs for {url}: {e}")
 
@@ -291,15 +299,19 @@ async def process_url(
     try:
         # Create unique collection name with timestamp for better isolation
         timestamp = str(int(time.time() * 1000))  # millisecond precision
-        collection_name = f"rag-chroma-{hashlib.md5(f'{url}_{subquery}_{timestamp}'.encode()).hexdigest()[:8]}"
-        
+        if local_mode:
+            collection_name = f"rag-chroma-{hashlib.md5(f'{url}'.encode()).hexdigest()[:8]}"
+        else:
+            collection_name = f"rag-chroma-{hashlib.md5(f'{url}_{subquery}_{timestamp}'.encode()).hexdigest()[:8]}"
+
         # Use optimized async vectorstore creation
         ensemble_retriever = await create_vectorstore_async(
             docs=docs,
             collection_name=collection_name,
             hf_embeddings=hf_embeddings,
             top_k=top_k,
-            ensemble_weights=[0.25, 0.75]
+            ensemble_weights=[0.4, 0.6],
+            local_mode=local_mode
         )
     except Exception as e:
         logger.error(f"Error setting up retrievers for {url}: {e}")
@@ -323,7 +335,7 @@ async def process_url(
         try:
             rerank_start = time.time()
             logger.info(f"Reranking start for URL: {url}")
-            compressor = CrossEncoderReranker(model=cross_encoder, top_n=5)
+            compressor = CrossEncoderReranker(model=cross_encoder, top_n=3)
             ensemble_retriever = ContextualCompressionRetriever(
                 base_compressor=compressor,
                 base_retriever=ensemble_retriever
@@ -335,12 +347,17 @@ async def process_url(
 
     # TODO: Consider improving query and filter logic for more flexible retrieval
     try:
-        query_filter = {"name": {"$in": [query]}}
-        url_filter = {"name": {"$in": [url]}}
-        combined_filter = {"$and": [query_filter, url_filter]}
-        retrieved_docs = await ensemble_retriever.ainvoke(
-            subquery, search_kwargs={"k": top_k}, filter=combined_filter
-        )
+        # query_filter = {"so": {"$in": [query]}}
+        if not local_mode:
+            url_filter = {"source": {"$in": [url]}}
+        # combined_filter = {"$and": [url_filter]}
+            retrieved_docs = await ensemble_retriever.ainvoke(
+                subquery, search_kwargs={"k": 3}, filter=url_filter
+            )
+        else:
+            retrieved_docs = await ensemble_retriever.ainvoke(
+                subquery, search_kwargs={"k": 3}
+            )
         logger.info(f"Retrieved {len(retrieved_docs)} docs for {url}")
     except Exception as e:
         logger.error(f"Error retrieving docs for {url}: {e}")
@@ -359,13 +376,14 @@ async def process_url(
     # Build context string
     try:
         if not local_mode:
+            logger.info(f"Building context for subquery: {subquery}")
             context = [
-                f"search result::title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
+                f"Subquery: {subquery} \nsearch result::title: {d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
                 for i, d in enumerate(retrieved_docs)
             ]
         else:
             context = [
-                f"search result: File:{d.metadata.get('source', '').replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
+                f"Subquery: {subquery} \nsearch result:: File: {d.metadata.get('source', '').replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
                 for i, d in enumerate(retrieved_docs)
             ]
         context = '\n'.join(context).strip()
@@ -434,19 +452,137 @@ async def context_to_docs(
     if profiler:
         profiler.start_step("url_collection", "Collecting and preparing URLs for processing")
     
-    text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
+    text_splitter = TokenTextSplitter(chunk_size=128, chunk_overlap=32)
     contexts = []
     rtr_docs = []
     used_urls = []
     total_docs = []
 
-    # Create async tasks for parallel URL processing
+    # First: flatten all URLs and prefetch docs for them in parallel
+    # This allows urls_to_docs to be run once and in parallel, returning a map of url->docs
+    all_urls_flat = []
+    for urls in urls_list:
+        if urls:
+            all_urls_flat.extend(urls)
+    # Deduplicate while preserving order
+    seen = set()
+    all_urls_flat = [u for u in all_urls_flat if not (u in seen or seen.add(u))]
+
+    docs_map = {}
+    if all_urls_flat:
+        try:
+            logger.info(f"Prefetching docs for {len(all_urls_flat)} URLs")
+            docs_map = await urls_to_docs(all_urls_flat, local_mode=local_mode, split=split)
+        except Exception as e:
+            logger.error(f"Error prefetching docs: {e}")
+
+    if local_mode:
+        # For local mode, embed all docs first, then subquery over the assembled docs
+        logger.info("Local mode: embedding all documents first")
+        if profiler:
+            profiler.start_step("local_embedding", "Embedding all local documents into single vectorstore")
+        
+        # Compute collection name based on document set hash (similar to process_url)
+        sorted_urls = ''.join(sorted(all_urls_flat))
+        collection_name = f"rag-chroma-{hashlib.md5(f'{sorted_urls}'.encode()).hexdigest()[:8]}"
+        
+        # Process docs (needed for BM25 even if collection exists)
+        all_docs = []
+        for docs in docs_map.values():
+            all_docs.extend(docs)
+        
+        if split:
+            all_docs = text_splitter.split_documents(all_docs)
+        
+        if not all_docs:
+            logger.warning("No documents found in local mode")
+            if profiler:
+                profiler.end_step("No documents found")
+            search_snippets_context = [
+                f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
+                for d in search_snippets
+            ]
+            search_snippets_context = '\n'.join(search_snippets_context)
+            return search_snippets_context, [], []
+        
+        # Use create_vectorstore_async which handles existing collections
+        big_ensemble_retriever = await create_vectorstore_async(
+            docs=all_docs,
+            collection_name=collection_name,
+            hf_embeddings=hf_embeddings,
+            top_k=top_k,
+            ensemble_weights=[0.4, 0.6],
+            local_mode=local_mode,
+            persist_directory="./chroma_db_local"
+        )
+        
+        if profiler:
+            profiler.end_step(f"Embedded {len(all_docs)} documents")
+            profiler.start_step("local_subquery_retrieval", "Retrieving documents for each subquery")
+        
+        if rerank:
+            try:
+                compressor = CrossEncoderReranker(model=cross_encoder, top_n=3)
+                big_ensemble_retriever = ContextualCompressionRetriever(
+                    base_compressor=compressor,
+                    base_retriever=big_ensemble_retriever
+                )
+            except Exception as e:
+                logger.error(f"Error during reranking in local mode: {e}")
+        
+        if profiler:
+            profiler.start_step("local_subquery_retrieval", "Retrieving documents for each subquery")
+        
+        # For each subquery, retrieve from the big vectorstore
+        contexts = []
+        rtr_docs = []
+        for subquery in subqueries:
+            try:
+                retrieved_docs = await big_ensemble_retriever.ainvoke(subquery, search_kwargs={"k": 3})
+                # Build context
+                context = [
+                    f"Subquery: {subquery} \nsearch result: File:{d.metadata.get('source', '').replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
+                    for i, d in enumerate(retrieved_docs)
+                ]
+                context = '\n'.join(context).strip()
+                contexts.append(context)
+                rtr_docs.append(retrieved_docs)
+            except Exception as e:
+                logger.error(f"Error retrieving for subquery '{subquery}': {e}")
+                contexts.append('')
+                rtr_docs.append([])
+        
+        total_docs = all_docs
+        
+        if profiler:
+            profiler.end_step(f"Retrieved docs for {len(subqueries)} subqueries")
+            profiler.start_step("context_building", "Building final context from processed documents")
+        
+        search_snippets_context = [
+            f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
+            for d in search_snippets
+        ]
+        # Deduplicate search snippets context
+        # search_snippets_context = list(set(search_snippets_context))
+        search_snippets_context = '\n'.join(search_snippets_context)
+        final_context = '\n\n'.join(contexts).strip() + '\n' + search_snippets_context
+        
+        logger.info(f"Local mode context_to_docs complete. Total contexts: {len(contexts)}, total docs: {len(total_docs)}")
+        
+        if profiler:
+            profiler.end_step(f"Built final context with {len(final_context)} characters")
+        
+        return final_context, rtr_docs, total_docs
+
+    # Create async tasks for parallel URL processing (for non-local mode)
     async def process_url_async_wrapper(url, subquery_idx):
         """Async wrapper for process_url to handle individual URL processing"""
         try:
             logger.info(f"Starting async processing for URL: {url}")
             
-            # Call the async version of process_url
+            # Fetch docs from prefetch map if available, otherwise None (process_url will fetch)
+            pre_docs = docs_map.get(url) if docs_map else None
+            # Call the async version of process_url with pre-fetched docs
             context, retrieved_docs, docs, processed_url = await process_url(
                 url=url,
                 query=query,
@@ -460,7 +596,8 @@ async def context_to_docs(
                 search_snippets_orig=search_snippets_orig,
                 model=model,
                 local_mode=local_mode,
-                split=split
+                split=split,
+                docs=pre_docs,
             )
             
             # Process search snippets context replacement
@@ -496,7 +633,7 @@ async def context_to_docs(
         if not urls:
             logger.warning(f"No URLs provided for subquery {u}.")
             continue
-        
+     
         for url in urls:
             task = process_url_async_wrapper(url, u)
             all_tasks.append(task)
@@ -506,7 +643,7 @@ async def context_to_docs(
         if profiler:
             profiler.end_step("No URLs found to process")
         search_snippets_context = [
-            f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
+            f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
             for d in search_snippets
         ]
         search_snippets_context = '\n'.join(search_snippets_context)
@@ -549,7 +686,7 @@ async def context_to_docs(
         profiler.start_step("context_building", "Building final context from processed documents")
 
     search_snippets_context = [
-        f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \ncontent: {d.page_content}\n"
+        f"search result:: title:{d.metadata.get('title', '')} url:{d.metadata['source'].replace('https://r.jina.ai/', '')}  \n<content> {d.page_content}\n</content>"
         for d in search_snippets
     ]
     search_snippets_context = '\n'.join(search_snippets_context)
@@ -743,14 +880,14 @@ def modify_query_with_blacklist(query):
 def query_to_search_results(query, search_response, websearcher, num_results=3, max_retries=2):
     """
     Performs a web search for each query in the search response and extracts the URLs and search snippets.
-    Includes URL reachability checking, retry logic, and domain blacklisting to avoid unreachable sites.
+    Includes URL reachability checking, retry logic per subquery, and domain blacklisting to avoid unreachable sites.
 
     Args:
         query (str): The original user query.
         search_response (list): A list of search queries or subqueries.
         websearcher (object): An instance of a web searcher (e.g., SearxSearchWrapper) to perform the search.
         num_results (int, optional): The number of results to retrieve for each search query. Defaults to 3.
-        max_retries (int, optional): Maximum number of retries when all URLs are unreachable. Defaults to 2.
+        max_retries (int, optional): Maximum number of retries when all URLs for a subquery are unreachable. Defaults to 2.
 
     Returns:
         tuple: A tuple containing:
@@ -761,22 +898,28 @@ def query_to_search_results(query, search_response, websearcher, num_results=3, 
     # Start timing for search execution
     search_start_time = time.time()
     logger.info(f"Starting query_to_search_results for {len(search_response)} queries")
-    async def perform_search_with_reachability_check(search_queries, current_num_results):
-        """
-        Inner async function to perform search and check URL reachability.
-        """
-        all_search_snippets = []
-        all_search_results = []
-        all_search_results_urls = []
-        all_urls_found = set()  # Track all URLs to avoid duplicates
+    
+    all_search_snippets = []
+    all_search_results = []
+    all_search_results_urls = []
+    all_urls_found = set()  # Track all URLs to avoid duplicates across subqueries
+    
+    for r in search_response:
+        logger.info(f"Processing subquery: {r}")
+        subquery_snippets = []
+        subquery_urls = []
+        retry_count = 0
+        reachable_found = False
         
-        for r in search_queries:
+        while retry_count <= max_retries and not reachable_found:
+            logger.info(f"Subquery '{r}' attempt {retry_count + 1}/{max_retries + 1}")
+            
             try:
                 # Randomized delay between outbound queries to reduce rate-limit blocking
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                time.sleep(random.uniform(1.0, 2.0))
                 # Modify query to exclude blacklisted domains
                 modified_query = modify_query_with_blacklist(r)
-                results = websearcher.query_search(modified_query, num_results=current_num_results)
+                results = websearcher.query_search(modified_query, num_results=num_results)
                 logger.info(f"Search results fetched for subquery: {r} (modified: {modified_query})")
             except Exception as e:
                 logger.error(f"Error fetching search results for subquery '{r}': {e}")
@@ -793,149 +936,72 @@ def query_to_search_results(query, search_response, websearcher, num_results=3, 
                 urls = [s['link'] for s in results if 'link' in s and s['link'] not in all_urls_found]
                 # Update the set of all URLs found
                 all_urls_found.update(urls)
-                all_search_results_urls.append(urls)
-                all_search_snippets.extend(results)
+                subquery_urls = urls
+                subquery_snippets = results
             except Exception as e:
                 logger.error(f"Error processing search results for subquery '{r}': {e}")
-                all_search_snippets.extend(results)
-            all_search_results = results  # Keep last results for return
-        
-        return all_search_snippets, all_search_results, all_search_results_urls, list(all_urls_found)
-    
-    try:
-        # Initialize variables
-        search_snippets = []
-        search_results = []
-        search_results_urls = []
-        retry_count = 0
-        
-        while retry_count <= max_retries:
-            logger.info(f"Search attempt {retry_count + 1}/{max_retries + 1}")
-            
-            # Use the same number of results for all attempts
-            current_num_results = num_results
-            
-            # Perform search (this needs to be called in an async context)
-            try:
-                # Since we're in a sync function but need async operations, we need to handle this
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If we're already in an async context, create a task
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run, 
-                            perform_search_with_reachability_check(search_response, current_num_results)
-                        )
-                        search_snippets, search_results, search_results_urls, all_urls = future.result()
-                else:
-                    # If no event loop is running, we can use asyncio.run
-                    search_snippets, search_results, search_results_urls, all_urls = asyncio.run(
-                        perform_search_with_reachability_check(search_response, current_num_results)
-                    )
-            except Exception as e:
-                logger.error(f"Error in search execution: {e}")
-                # Fallback to synchronous search without reachability checking
-                mentioned_url = extract_urls_from_query(query)
-                search_results_urls = []
-                search_snippets = []
-                search_results = []
-                all_urls = []
-                
-                for r in search_response:
-                    try:
-                        time.sleep(random.uniform(0.5, 1.0))
-                        modified_query = modify_query_with_blacklist(r)
-                        results = websearcher.query_search(modified_query, num_results=current_num_results)
-                        logger.info(f"Fallback search results fetched for subquery: {r}")
-                    except Exception as e:
-                        logger.error(f"Error fetching search results for subquery '{r}': {e}")
-                        results = []
-                    
-                    # Add mentioned URLs as empty-snippet results
-                    for u in mentioned_url:
-                        results.append({'link': u, 'snippet': ''})
-                    
-                    try:
-                        urls = [s['link'] for s in results if 'link' in s]
-                        all_urls.extend(urls)
-                        search_results_urls.append(urls)
-                        search_snippets.extend(results)
-                    except Exception as e:
-                        logger.error(f"Error processing search results for subquery '{r}': {e}")
-                        search_snippets.extend(results)
-                    search_results = results
-                
-                # If we have URLs, break out of retry loop
-                if all_urls:
-                    logger.info(f"Fallback search successful with {len(all_urls)} URLs")
-                    break
+                subquery_snippets = results
             
             # Check URL reachability if we have URLs
-            if all_urls:
+            if subquery_urls:
                 try:
                     # Check reachability
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
-                        import concurrent.futures
                         with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(asyncio.run, check_urls_reachability(all_urls))
+                            future = executor.submit(asyncio.run, check_urls_reachability(subquery_urls))
                             reachability_map = future.result()
                     else:
-                        reachability_map = asyncio.run(check_urls_reachability(all_urls))
+                        reachability_map = asyncio.run(check_urls_reachability(subquery_urls))
                     
                     # Count reachable URLs
                     reachable_urls = [url for url, is_reachable in reachability_map.items() if is_reachable]
                     unreachable_urls = [url for url, is_reachable in reachability_map.items() if not is_reachable]
                     
-                    logger.info(f"Reachability check: {len(reachable_urls)}/{len(all_urls)} URLs are reachable")
+                    logger.info(f"Subquery '{r}' reachability check: {len(reachable_urls)}/{len(subquery_urls)} URLs are reachable")
                     
-                    # If we have reachable URLs, we're done
+                    # If we have reachable URLs, we're done for this subquery
                     if reachable_urls:
-                        logger.info(f"Found {len(reachable_urls)} reachable URLs, search successful")
+                        reachable_found = True
+                        logger.info(f"Subquery '{r}' successful with {len(reachable_urls)} reachable URLs")
                         # Add unreachable domains to blacklist for future searches
                         if unreachable_urls:
                             add_domains_to_blacklist(unreachable_urls)
-                        break
                     else:
                         # All URLs are unreachable, add domains to blacklist and retry
-                        logger.warning(f"All {len(all_urls)} URLs are unreachable, adding domains to blacklist")
-                        add_domains_to_blacklist(all_urls)
+                        logger.warning(f"All {len(subquery_urls)} URLs for subquery '{r}' are unreachable, adding domains to blacklist")
+                        add_domains_to_blacklist(subquery_urls)
                         
-                        # If this was our last retry, break
+                        # If this was our last retry, use the results anyway
                         if retry_count >= max_retries:
-                            logger.error(f"Max retries ({max_retries}) reached, returning results anyway")
-                            break
+                            logger.error(f"Max retries ({max_retries}) reached for subquery '{r}', using results anyway")
+                            reachable_found = True  # Proceed with what we have
                         
-                        # Continue to next retry
                         retry_count += 1
-                        logger.info(f"Retrying search with updated blacklist (attempt {retry_count + 1})")
-                        continue
+                        logger.info(f"Retrying subquery '{r}' with updated blacklist (attempt {retry_count + 1})")
                         
                 except Exception as e:
-                    logger.error(f"Error checking URL reachability: {e}")
+                    logger.error(f"Error checking URL reachability for subquery '{r}': {e}")
                     # If reachability check fails, proceed with the URLs we have
-                    break
+                    reachable_found = True
             else:
                 # No URLs found, try next iteration if retries available
                 if retry_count >= max_retries:
-                    logger.warning("No URLs found after all retries")
-                    break
+                    logger.warning(f"No URLs found for subquery '{r}' after all retries")
+                    reachable_found = True  # Proceed
                 retry_count += 1
-                continue
         
-        # Log search completion with timing
-        search_total_time = time.time() - search_start_time
-        total_urls = sum(len(urls) for urls in search_results_urls)
-        logger.info(f"Search completed after {retry_count + 1} attempts in {search_total_time:.3f}s")
-        logger.info(f"Search metrics: {len(search_snippets)} snippets, {total_urls} URLs, {len(search_results_urls)} URL groups")
-        return search_snippets, search_results, search_results_urls
-        
-    except Exception as e:
-        search_total_time = time.time() - search_start_time
-        logger.error(f"Error in query_to_search_results after {search_total_time:.3f}s: {e}")
-        return [], [], []
-
+        # Add this subquery's results to the overall lists
+        all_search_results_urls.append(subquery_urls)
+        all_search_snippets.extend(subquery_snippets)
+        all_search_results = subquery_snippets  # Keep last results for return
+    
+    # Log search completion with timing
+    search_total_time = time.time() - search_start_time
+    total_urls = sum(len(urls) for urls in all_search_results_urls)
+    logger.info(f"Search completed in {search_total_time:.3f}s")
+    logger.info(f"Search metrics: {len(all_search_snippets)} snippets, {total_urls} URLs, {len(all_search_results_urls)} URL groups")
+    return all_search_snippets, all_search_results, all_search_results_urls
 
 async def query_web_response(
     query,
@@ -950,7 +1016,9 @@ async def query_web_response(
     num_results=3,
     document_paths=None,
     local_mode=False,
-    split=True
+    split=True,
+    vectordb=None,
+    quick_answer=False
 ):
     """
     Performs a web search and retrieves results, then generates a response based on those results.
@@ -970,6 +1038,7 @@ async def query_web_response(
         document_paths (list, optional): List of paths for local documents. Defaults to None.
         local_mode (bool, optional): Whether to process local documents. Defaults to False.
         split (bool, optional): Whether to split documents into chunks. Defaults to True.
+        quick_answer (bool, optional): Whether to force quick answer mode (disables summary mode). Defaults to False.
 
     Returns:
         tuple: Generated response, sources, search results, retrieved documents, and context.
@@ -986,6 +1055,12 @@ async def query_web_response(
         if len(search_response) == 0:
             search_response = [query]
             logger.info(f"Search response generated for query '{query}' using pure query.")
+        
+        # Override is_summary if quick_answer is enabled
+        if quick_answer:
+            is_summary = False
+            logger.info(f"Quick answer mode enabled - forcing is_summary to False")
+        
         if is_summary:
             split=False
         search_response = [text.replace('"', '') for text in search_response]
@@ -996,7 +1071,77 @@ async def query_web_response(
         profiler.end_step("Failed with error")
         return None, None, None, None, None, None, None
 
-    if websearcher is None or local_mode:
+    if vectordb:
+        profiler.start_step("vectordb_retrieval", f"Retrieving from existing vector database {vectordb}")
+        # Load existing vector db
+        persist_directory = "./chroma_db"
+        client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(anonymized_telemetry=False, allow_reset=True)
+        )
+        vectorstore = Chroma(
+            client=client,
+            collection_name=vectordb,
+            embedding_function=hf_embeddings
+        )
+        # Get all documents for BM25
+        logger.info(f"Loading all documents from vector database '{vectordb}' for BM25 retrieval")
+        collection = client.get_collection(vectordb)
+        data = collection.get()
+        all_docs = []
+        for i in range(len(data['documents'])):
+            doc = Document(page_content=data['documents'][i], metadata=data.get('metadatas', [{}])[i] if data.get('metadatas') else {})
+            all_docs.append(doc)
+        logger.info(f"Loaded {len(all_docs)} documents from vector database '{vectordb}'")
+        # Check for URL filter
+        extracted_urls = extract_urls_from_query(query)
+        filter = None
+        if extracted_urls and (is_covered_urls or is_focused_on_urls):
+            filter = {"source": {"$in": extracted_urls}}
+        # Create retriever
+        search_kwargs = {"k": 3}
+        if filter:
+            search_kwargs["filter"] = filter
+        sem_retriever = vectorstore.as_retriever(search_kwargs=search_kwargs)
+        bm25_retriever = BM25Retriever.from_documents(all_docs)
+        bm25_retriever.k = 3
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[bm25_retriever, sem_retriever], 
+            weights=[0.4, 0.6]
+        )
+        if rerank:
+            compressor = CrossEncoderReranker(model=cross_encoder, top_n=3)
+            ensemble_retriever = ContextualCompressionRetriever(
+                base_compressor=compressor,
+                base_retriever=ensemble_retriever
+            )
+        logger.info(f"Ensemble retriever created with rerank={rerank}")
+        # Retrieve for each subquery
+        contexts = []
+        rtr_docs = []
+        for subquery in search_response:
+            try:
+                retrieved_docs = await ensemble_retriever.ainvoke(subquery, search_kwargs={"k": 3})
+                # Build context
+                context = [
+                    f"Subquery: {subquery} \nsearch result: {d.metadata.get('source', 'VectorDB')}  \n<content> {d.page_content}\n</content>"
+                    for i, d in enumerate(retrieved_docs)
+                ]
+                context = '\n'.join(context).strip()
+                contexts.append(context)
+                rtr_docs.append(retrieved_docs)
+            except Exception as e:
+                logger.error(f"Error retrieving for subquery '{subquery}': {e}")
+                contexts.append('')
+                rtr_docs.append([])
+        total_docs = [doc for sublist in rtr_docs for doc in sublist]
+        context = '\n\n'.join(contexts).strip()
+        search_results = []
+        search_results_urls = []
+        search_snippets = []
+        search_snippets_orig = {}
+        profiler.end_step(f"Retrieved docs for {len(search_response)} subqueries")
+    elif websearcher is None or local_mode:
         profiler.start_step("local_document_processing", "Processing local documents")
         logger.warning("Please add list of paths as input, earlier it used to be list of list")
         all_paths=[]
@@ -1058,21 +1203,22 @@ async def query_web_response(
 
     try:
         profiler.start_step("context_generation", "Processing URLs and generating context")
-        context, rtr_docs, total_docs = await context_to_docs(
-            search_results_urls,
-            search_response,
-            search_snippets,
-            search_snippets_orig,
-            query,
-            2,
-            hf_embeddings,
-            rerank,
-            cross_encoder=cross_encoder,
-            model=text_model,
-            local_mode=local_mode,
-            split=split,
-            profiler=profiler  # Pass profiler to context_to_docs
-        )
+        if not vectordb:
+            context, rtr_docs, total_docs = await context_to_docs(
+                search_results_urls,
+                search_response,
+                search_snippets,
+                search_snippets_orig,
+                query,
+                3,
+                hf_embeddings,
+                rerank,
+                cross_encoder=cross_encoder,
+                model=text_model,
+                local_mode=local_mode,
+                split=split,
+                profiler=profiler  # Pass profiler to context_to_docs
+            )
         logger.info(f"Async context generated to answer query '{query}'.")
         profiler.end_step(f"Generated context with {len(total_docs)} total documents")
         profiler.add_metric('docs_retrieved', len(total_docs))
@@ -1082,21 +1228,26 @@ async def query_web_response(
         profiler.end_step("Failed with error")
         return None, None, None, None, None, None, None
 
-    try:
-        log_results(query, context, '', '')
-        logger.info(f"Logged results for query '{query}'.")
-    except Exception as e:
-        logger.warning(f"Error logging results for query '{query}': {e}")
+
 
     try:
         profiler.start_step("response_generation", "Generating final response from context")
         if not is_summary or (is_covered_urls):
             logger.info(f"Generating Answer for query '{query}' using async response gen.")
+            logger.info("Deduplicating context before response generation.")
+            context = context.split("</content>")
+            context = " ".join(deduplicate_context([k+"</content>" for k in context]))
+           
             response_1, sources = await response_gen(text_model, query, context)
         else:
             logger.info(f"Generating summary for query '{query}' using async summarizer.")
             response_1 = await summarizer(query, total_docs, text_model, 4)
             sources = str(search_results_urls)
+        try:
+            log_results(query, context, '', '')
+            logger.info(f"Logged results for query '{query}'.")
+        except Exception as e:
+            logger.warning(f"Error logging results for query '{query}': {e}")
         logger.info(f"Async response generated for query '{query}'.")
         profiler.end_step(f"Generated response with {len(response_1)} characters")
     except Exception as e:
@@ -1108,7 +1259,6 @@ async def query_web_response(
     profiler.print_summary()
     
     return response_1, sources, search_response, search_results, rtr_docs, total_docs, context
-
 
 async def url_to_markdown(url, executor, local_mode=False):
     """
@@ -1163,7 +1313,6 @@ async def url_to_markdown(url, executor, local_mode=False):
         # TODO: Add more granular error handling if needed (e.g., for content parsing)
         return None
 
-
 async def urls_to_docs(urls, local_mode=False, split=True):
     """
     Asynchronously converts a list of URLs to document objects, optionally from local files.
@@ -1181,68 +1330,88 @@ async def urls_to_docs(urls, local_mode=False, split=True):
     mode_str = "local files" if local_mode else "URLs"
     logger.info(f"🔄 Starting urls_to_docs for {len(urls)} {mode_str}")
     
-    docs = []
+    # Prepare return map
+    docs_map = {}
     if not urls:
         logger.warning("0 URLs were given to urls_to_docs.")
-        return docs
+        return docs_map
 
     # Use a process pool for CPU-bound work (process_content)
     loop = asyncio.get_event_loop()
     with ProcessPoolExecutor() as executor:
         # Schedule all url_to_markdown tasks concurrently
-        tasks = [url_to_markdown(url, executor, local_mode=local_mode) for url in urls]
+        orig_urls = urls.copy()
+        # Preserve order while deduplicating
+        unique_urls = list(dict.fromkeys(orig_urls))
+        logger.info(f"Processing {len(unique_urls)} {mode_str} with ProcessPoolExecutor")
+        tasks = [url_to_markdown(url, executor, local_mode=local_mode) for url in unique_urls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for url, result in zip(urls, results):
+        for url, result in zip(unique_urls, results):
+            docs_map[url] = []
             if isinstance(result, Exception):
                 logger.error(f"Error fetching or processing URL {url}: {result}")
-            elif result is None:
+                continue
+            if result is None:
                 logger.warning(f"No content returned for URL {url}")
-            else:
-                try:
-                    if local_mode:
-                        headers_to_split_on = [
-                            ("#", "Header 1"),
-                            ("##", "Header 2"),
-                            ("###", "Header 3"),
-                        ]
-                        markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
-                        
-                        if split:
-                            split_docs = markdown_splitter.split_text(result)
-                        else:
-                            split_docs = [Document(page_content=result)]
-                        for i, d in enumerate(split_docs):
-                            split_docs[i].metadata['source'] = url
-                            split_docs[i].metadata['url'] = url
-                        docs.extend(split_docs)
-                    else:
-                        doc = Document(result)
-                        doc.metadata['source'] = url
-                        docs.append(doc)
-                    logger.info(f"✅ Successfully processed and added document(s) for URL: {url}")
+                continue
+
+            try:
+              
+                headers_to_split_on = [
+                    ("#", "Header 1"),
+                    ("##", "Header 2"),
+                    ("###", "Header 3"),
                     
-                    # Track content for time saved calculation
-                    profiler = get_profiler()
-                    if profiler:
+                
+                ]
+                markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+                # Further split for granular sections using regex (e.g., tables, code blocks)
+                
+                if split:
+                    split_docs = markdown_splitter.split_text(result)
+                else:
+                    split_docs = [Document(page_content=result)]
+                
+                # if split:
+                #     split_docs = markdown_splitter.split_text(result)
+                    
+                # else:
+                #     split_docs = [Document(page_content=result)]
+                for i, d in enumerate(split_docs):
+                    split_docs[i].metadata['source'] = url + ' Section: ' + split_docs[i].metadata.get('Header 1', '') +\
+                        ' ' + split_docs[i].metadata.get('Header 2', '') + ' ' + split_docs[i].metadata.get('Header 3', '') 
+                    split_docs[i].metadata['url'] = url
+                    split_docs[i].page_content = ' Section: ' + split_docs[i].metadata.get('Header 1', '') +\
+                        ' ' + split_docs[i].metadata.get('Header 2', '') + ' ' + split_docs[i].metadata.get('Header 3', '') + '<content>' + split_docs[i].page_content.strip() + '</content>'
+
+                docs_map[url].extend(split_docs)
+               
+                logger.info(f"✅ Successfully processed and added document(s) for URL: {url}")
+
+                # Track content for time saved calculation
+                profiler = get_profiler()
+                if profiler:
+                    try:
                         if local_mode and 'split_docs' in locals():
-                            # For local mode, track all split documents
                             for split_doc in split_docs:
                                 profiler.add_url_content(url, split_doc.page_content)
-                        elif local_mode:
-                            # Single document in local mode
-                            profiler.add_url_content(url, result)
                         else:
-                            # For remote mode, track the main document
                             profiler.add_url_content(url, result)
-                            
-                except Exception as e:
-                    logger.error(f"Error creating Document(s) for URL {url}: {e}")
-    
+                    except Exception:
+                        pass
+
+            except Exception as e:
+                logger.error(f"Error creating Document(s) for URL {url}: {e}")
+
     # Log completion with timing
     urls_total_time = time.time() - urls_start_time
-    logger.info(f"urls_to_docs completed in {urls_total_time:.3f}s: {len(docs)} documents from {len(urls)} {mode_str}")
-    return docs
+    total_docs = sum(len(v) for v in docs_map.values())
+    # Calculate average words per document
+    total_words = sum(len(doc.page_content.split()) for docs in docs_map.values() for doc in docs)
+    avg_words = total_words / total_docs if total_docs > 0 else 0
+    logger.info(f"urls_to_docs completed in {urls_total_time:.3f}s: {total_docs} documents from {len(unique_urls)} {mode_str}, avg {avg_words:.1f} words/doc")
+    return docs_map
 
 def youtube_transcript_response(query, task, model,n=3):
     overall_context = ''
@@ -1329,14 +1498,15 @@ async def summary_of_url(query, url, model, local_mode=False):
             urls = get_all_paths(url)
         else:
             urls = [url]
-        for url in urls:
-            docs.extend(await urls_to_docs([url], local_mode=local_mode))
+        for u in urls:
+            docs_map = await urls_to_docs([u], local_mode=local_mode)
+            docs.extend(docs_map.get(u, []))
         if not docs:
             logger.warning(f"No documents found for URL: {url}")
             return "No content found to summarize."
         content= ''
         for d in docs:
-            content = content + 'source:' + url  + '\n\ncontent:' + d.page_content
+            content = content + 'source:' + url  + '\n<content>' + d.page_content + '</content>'
         summary = await model.ainvoke(f"Summarise the following content to answer {query}:\n{content}")
         return summary.content
     except Exception as e:
@@ -1359,8 +1529,6 @@ def get_all_paths(root_path):
     type = is_file_folder(root_path)
     if type=='Folder':
         for dirpath, dirnames, filenames in os.walk(root_path):
-            # Add directory itself
-            paths.append(dirpath)
             # Add all files in this directory
             for filename in filenames:
                 paths.append(os.path.join(dirpath, filename))
@@ -1425,3 +1593,21 @@ async def get_topk_bm25_clickable_elements(url, query, topk=10):
     elements = await extract_clickable_elements(url)
     ranked = bm25_search(elements, query, topk)
     return ranked
+
+def deduplicate_context(context):
+    """
+    Deduplicates sections in the context based on their content.
+    content is in page_content and in <content></content> tags. in sequence, first one stays
+    and connects later duplicates are removed. there can be content before and after content so first extract the content
+    """
+    seen_hashes = set()
+    deduped_context = []
+    for doc in context:     
+        content_match = re.search(r'<content>(.*?)</content>', doc, re.DOTALL)
+        content_text = content_match.group(1).strip() if content_match else doc.strip()
+        doc_hash = generate_doc_hash(content_text)
+        if doc_hash not in seen_hashes:
+            seen_hashes.add(doc_hash)
+            deduped_context.append(doc)
+    logger.info(f"Deduplicated context: {len(context)} -> {len(deduped_context)} documents")
+    return deduped_context

@@ -35,7 +35,7 @@ def get_chroma_client():
     
     return _chroma_client
 
-async def create_vectorstore_async(docs, collection_name, hf_embeddings, top_k, ensemble_weights=[0.25, 0.75]):
+async def create_vectorstore_async(docs, collection_name, hf_embeddings, top_k, ensemble_weights=[0.25, 0.75], local_mode=False, batch_size=32, persist_directory="./chroma_db"):
     """
     Asynchronously creates a vectorstore from the given documents using Chroma and returns an ensemble retriever.
     Uses persistent ChromaDB client with optimized settings for better performance.
@@ -53,7 +53,10 @@ async def create_vectorstore_async(docs, collection_name, hf_embeddings, top_k, 
     """
     # Create unique collection name with timestamp to avoid conflicts
     timestamp = str(int(time.time() * 1000))  # millisecond precision
-    unique_collection_name = f"{collection_name}_{timestamp}"
+    if local_mode:
+        unique_collection_name = f"{collection_name}"
+    else:   
+        unique_collection_name = f"{collection_name}_{timestamp}"
     
     # Use thread pool for CPU-intensive operations
     loop = asyncio.get_event_loop()
@@ -62,32 +65,80 @@ async def create_vectorstore_async(docs, collection_name, hf_embeddings, top_k, 
         ensemble_retriever = await loop.run_in_executor(
             executor,
             _create_vectorstore_sync,
-            docs, unique_collection_name, hf_embeddings, top_k, ensemble_weights
+            docs, unique_collection_name, hf_embeddings, top_k, ensemble_weights, batch_size, persist_directory
         )
     
     return ensemble_retriever
 
-def _create_vectorstore_sync(docs, unique_collection_name, hf_embeddings, top_k, ensemble_weights):
+def _create_vectorstore_sync(docs, unique_collection_name, hf_embeddings, top_k, ensemble_weights, batch_size=8, persist_directory="./chroma_db"):
     """
     Synchronous helper function for creating vectorstore.
     This runs in a thread pool to avoid blocking the event loop.
     """
     try:
-        # Use persistent client for better performance
-        client = get_chroma_client()
-        
-        # Create vectorstore with default settings (more stable)
-        # ChromaDB will handle collection creation automatically with sensible defaults
-        
-        # Create vectorstore using the collection
-        vectorstore = Chroma(
-            client=client,
-            collection_name=unique_collection_name,
-            embedding_function=hf_embeddings
+        # Use persistent client for the specified directory
+        client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
         )
         
-        # Add documents to vectorstore
-        vectorstore.add_documents(docs)
+        # If the collection already exists, load and reuse it instead of recreating.
+        existing_collections = [c.name for c in client.list_collections()]
+
+        if unique_collection_name in existing_collections:
+            logger.info(f"Collection {unique_collection_name} exists — loading existing vectorstore")
+            vectorstore = Chroma(
+                client=client,
+                collection_name=unique_collection_name,
+                embedding_function=hf_embeddings
+            )
+            # Do not re-add documents to avoid duplicates; assume caller passed docs for BM25
+        else:
+            # Create vectorstore using the collection
+            vectorstore = Chroma(
+                client=client,
+                collection_name=unique_collection_name,
+                embedding_function=hf_embeddings
+            )
+            # Add documents to vectorstore (only when creating new collection)
+            if docs:
+                # Try to precompute embeddings in batches to improve performance
+                try:
+                    texts = [d.page_content for d in docs]
+                    metadatas = [getattr(d, 'metadata', {}) for d in docs]
+                    embeddings = None
+                    # Prefer embed_documents API if available
+                    if hasattr(hf_embeddings, 'embed_documents'):
+                        try:
+                            embeddings = hf_embeddings.embed_documents(texts, batch_size=batch_size)
+                        except TypeError:
+                            # fallback if batch_size not supported
+                            embeddings = hf_embeddings.embed_documents(texts)
+                    elif hasattr(hf_embeddings, 'embed'):
+                        try:
+                            embeddings = hf_embeddings.embed(texts)
+                        except Exception:
+                            embeddings = None
+
+                    if embeddings is not None:
+                        # Add texts with precomputed embeddings
+                        try:
+                            vectorstore.add_texts(texts=texts, metadatas=metadatas, embeddings=embeddings)
+                        except Exception:
+                            # Fallback to add_documents if add_texts fails
+                            vectorstore.add_documents(docs)
+                    else:
+                        # No embedding function available; let vectorstore compute embeddings
+                        vectorstore.add_documents(docs)
+                except Exception as e:
+                    logger.warning(f"Batched embedding failed, falling back to add_documents: {e}")
+                    try:
+                        vectorstore.add_documents(docs)
+                    except Exception as e2:
+                        logger.error(f"Failed to add documents to vectorstore: {e2}")
         
         # Create retrievers
         sem_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
