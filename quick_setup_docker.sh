@@ -16,15 +16,29 @@ INTERVAL=3
 echo "Running: $COMPOSE_CMD"
 $COMPOSE_CMD
 
-echo "Started containers (detached). If you want live logs, run:"
-echo "  docker compose logs -f app --tail=200"
+echo ""
+echo "Started containers (detached). Streaming logs from app container..."
+echo "==============================================================================="
+
+# Start streaming logs in the background and to stdout
+docker compose logs -f app 2>&1 &
+LOGS_PID=$!
+
+# Give logs a moment to start
+sleep 0.5
 
 echo "Waiting for CoexistAI to report ready on http://localhost:8000/status (timeout ${TIMEOUT}s)..."
+echo ""
 
 START=$(date +%s)
 while true; do
   if [ $(( $(date +%s) - START )) -ge $TIMEOUT ]; then
-    echo "Timed out waiting for app to become ready after ${TIMEOUT}s"
+    kill $LOGS_PID 2>/dev/null || true
+    wait $LOGS_PID 2>/dev/null || true
+    echo ""
+    echo "==============================================================================="
+    echo "ERROR: Timed out waiting for app to become ready after ${TIMEOUT}s"
+    echo "Check full logs with: docker compose logs app --tail=500"
     exit 2
   fi
   # fetch status JSON and extract status field using python for reliable parsing
@@ -37,18 +51,32 @@ try:
 except Exception:
     print("")')
     if [ "$st" = "ready" ]; then
-      echo "CoexistAI status: ready"
+      kill $LOGS_PID 2>/dev/null || true
+      wait $LOGS_PID 2>/dev/null || true
+      echo ""
+      echo "==============================================================================="
+      echo "✓ CoexistAI status: READY"
+      echo "==============================================================================="
       break
     fi
     if [ "$st" = "error" ]; then
-      echo "CoexistAI reported error state. Check logs: docker compose logs app --tail=200"
+      kill $LOGS_PID 2>/dev/null || true
+      wait $LOGS_PID 2>/dev/null || true
+      echo ""
+      echo "==============================================================================="
+      echo "ERROR: CoexistAI reported error state"
+      echo "Check logs with: docker compose logs app --tail=200"
+      echo "==============================================================================="
       exit 3
     fi
   fi
-  # simple spinner
-  printf '.'
   sleep $INTERVAL
 done
 
-echo "Done: app is ready. Please open to change model configurations http://localhost:8000/admin, default ADMIN TOKEN is 123456, you can change from .env"
+echo ""
+echo "Done: app is ready."
+echo "Access the admin panel to configure models:"
+echo "  http://localhost:8000/admin"
+echo "Default ADMIN_TOKEN is 123456 (changeable in .env)"
+echo "==============================================================================="
 exit 0

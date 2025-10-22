@@ -37,8 +37,10 @@ def init_components():
 
     app_state['status'] = 'starting'
     app_state['message'] = 'Loading models and embeddings (this may take a minute)...'
+    print("=== CoexistAI Startup: Loading models and embeddings ===", flush=True)
     try:
         # Read config values
+        print("Reading configuration from model_config...", flush=True)
         llm_model_name = model_config.get("llm_model_name", llm_model_name if 'llm_model_name' in globals() else 'google/gemma-3-12b')
         llm_type = model_config.get("llm_type", llm_type if 'llm_type' in globals() else 'local')
         llm_kwargs = model_config.get("llm_kwargs", llm_kwargs if 'llm_kwargs' in globals() else {'temperature':0.1,'api_key': llm_api_key})
@@ -46,8 +48,10 @@ def init_components():
         embedding_model_name = model_config.get("embedding_model_name", embedding_model_name if 'embedding_model_name' in globals() else 'models/embedding-001')
         embed_mode = model_config.get("embed_mode", embed_mode if 'embed_mode' in globals() else 'google')
         cross_encoder_name = model_config.get("cross_encoder_name", cross_encoder_name if 'cross_encoder_name' in globals() else 'BAAI/bge-reranker-base')
+        print(f"Config loaded: llm_type={llm_type}, llm_model={llm_model_name}, embed_mode={embed_mode}", flush=True)
 
         # instantiate generative LLM
+        print(f"Initializing LLM: {llm_model_name} ({llm_type})...", flush=True)
         llm = get_generative_model(
             model_name=llm_model_name,
             type=llm_type,
@@ -55,36 +59,48 @@ def init_components():
             _tools=None,
             kwargs=llm_kwargs
         )
+        print("LLM initialized successfully", flush=True)
 
         # load embeddings and cross-encoder
+        print(f"Loading embeddings: {embedding_model_name} (mode={embed_mode})...", flush=True)
         hf_embeddings, cross_encoder = load_model(embedding_model_name,
                                                   _embed_mode=embed_mode,
                                                   cross_encoder_name=cross_encoder_name,
                                                   kwargs=model_config.get('embed_kwargs', {}))
+        print("Embeddings and cross-encoder loaded successfully", flush=True)
 
+        print("Initializing text splitter...", flush=True)
         text_splitter = TokenTextSplitter(chunk_size=128, chunk_overlap=32)
 
         # recreate searxng searcher
+        print(f"Initializing SearchWeb with {HOST_SEARXNG}:{PORT_NUM_SEARXNG}...", flush=True)
         searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
 
+        print("Getting local date and time...", flush=True)
         date, day = get_local_data()
 
         app_state['status'] = 'ready'
         app_state['message'] = 'Ready'
+        print("=== CoexistAI Startup Complete: All components ready ===", flush=True)
     except Exception as e:
         app_state['status'] = 'error'
         app_state['message'] = f'Initialization failed: {e}'
         # keep exception visible in logs
+        print(f"=== CoexistAI Startup FAILED: {e} ===", flush=True)
         logger.exception('Failed to initialize components')
         raise
 
 
 # Initialize components once at import/startup
-try:
-    init_components()
-except Exception:
-    # already logged; keep going so admin endpoints can be used to diagnose/fix
-    pass
+# (This is now done in the lifespan startup handler)
+# try:
+#     init_components()
+# except Exception as e:
+#     # already logged; keep going so admin endpoints can be used to diagnose/fix
+#     logger.error(f'Failed to initialize at startup: {e}')
+#     # Update status to show startup failed but app is running for diagnostics
+#     app_state['status'] = 'error'
+#     app_state['message'] = f'Startup failed: {e}'
 
 # Use config values for model and embedding paths
 llm_model_name = model_config.get("llm_model_name", 'google/gemma-3-12b')
@@ -139,7 +155,34 @@ text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 
 searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
 date, day = get_local_data()
-app = FastAPI(title='coexistai')
+
+# Lifespan context manager for startup/shutdown
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app_instance):
+    # Startup
+    print("\n" + "="*80, flush=True)
+    print("FastAPI app starting up...", flush=True)
+    logger.info("FastAPI app starting up...")
+    app_state['status'] = 'starting'
+    app_state['message'] = 'Initializing components...'
+    try:
+        init_components()
+        print("="*80 + "\n", flush=True)
+    except Exception as e:
+        print(f"STARTUP ERROR: {e}", flush=True)
+        print("="*80 + "\n", flush=True)
+        logger.error(f"Failed to initialize components during startup: {e}", exc_info=True)
+        app_state['status'] = 'error'
+        app_state['message'] = f'Startup failed: {e}'
+    yield
+    # Shutdown
+    logger.info("FastAPI app shutting down...")
+    app_state['status'] = 'shutting_down'
+    app_state['message'] = 'App shutting down'
+
+app = FastAPI(title='coexistai', lifespan=lifespan)
 
 # Mount static files
 app.mount("/artifacts", StaticFiles(directory="artifacts"), name="artifacts")
@@ -271,6 +314,7 @@ async def admin_get_config():
         except Exception:
             return ''
 
+    cfg = dict(model_config)
     cfg['_meta'] = {
         'openai_compatible': openai_compatible,
         'HOST_APP': globals().get('HOST_APP'),
