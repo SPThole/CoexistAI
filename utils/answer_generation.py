@@ -44,10 +44,13 @@ async def query_agent(query, llm, date, day):
         """ + "Todays date is: {date} and today is {day}, {place}, Use date/location only if the query requires time-sensitive or location-specific information.",
 
         planning_to_answer_query_to_help_finding_subqueries: list[str] = Field(
-            description="Based on query complexity, generate 1 (min) to 6 (max) sub-tasks (6 for complex queries, 1 for simple ones), breaking down the task into parallel, self-sufficient descriptions for independent agents. Avoid overemphasizing keywords and sequential dependencies. Context: Today's date is {date} {day}, {place}."
+            description="Based on query complexity, generate 1 (min) to 2 (max) sub-tasks (6 for complex queries, 1 for simple ones), breaking down the task into parallel, self-sufficient descriptions for independent agents. Avoid overemphasizing keywords and sequential dependencies. Context: Today's date is {date} {day}, {place}."
         )
         subqueries: list[str] = Field(
-            description="Generate 1 (min) to 6 (max) subqueries (1 for simple queries, up to 6 for complex ones), each as a rephrased, independent search phrase with a maximum of 6 words, covering all aspects of the query. Include essential details and context from the original query. Context: Today's date is {date} {day}, {place}."
+            description="Generate 1 (min) to 2 (max) subqueries (1 for simple queries, up to 6 for complex ones), each as a rephrased, independent search phrase with a maximum of 6 words, covering all aspects of the query. Include essential details and context from the original query. Context: Today's date is {date} {day}, {place}."
+        )
+        summary_reasoning: str = Field(
+            description="max one liner reasoning behind whether is_summary. If the query is complex, requires structured data (tables, lists, codes), or involves summarizing multiple sources, set is_summary to True. If the query is straightforward and can be answered directly from a single source, set is_summary to False."
         )
         is_summary: bool = Field(
             description="Whether the subqueries are intended to summarize. Generally, for the subqueries focused on structured data, tables, list, codes. You SHOULD use summarise!"
@@ -69,13 +72,14 @@ async def query_agent(query, llm, date, day):
             f"\nquery: {query}"
         )
         is_summary = response.is_summary
+        reasoning_summary = response.summary_reasoning
         if response.is_structured_data:
             is_summary = True
         is_covered_urls = response.is_covered_urls
         is_focused_on_given_urls = response.is_focused_on_given_urls
         response = response.subqueries
 
-        logger.info(f"Summary:{is_summary},subquery:{response}, iscoverd:{is_covered_urls}, isfocused:{is_focused_on_given_urls}")
+        logger.info(f"'Reasoning Summary:{reasoning_summary} Summary:{is_summary},subquery:{response}, iscoverd:{is_covered_urls}, isfocused:{is_focused_on_given_urls}")
     except Exception as e:
         logger.warning(f"Structured output failed: {e}. Falling back to prompt-based extraction.")
         try:

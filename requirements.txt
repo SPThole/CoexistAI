@@ -2,7 +2,7 @@ fastapi
 uvicorn
 pydantic
 aiohttp
-langchain
+langchain<1.0.0
 langchain-google-genai
 langchain-openai
 langchain-text-splitters
@@ -40,3 +40,4 @@ slowapi
 charset-normalizer
 kokoro-onnx
 soundfile
+langchain-chroma

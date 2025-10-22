@@ -7,6 +7,8 @@ from utils.utils import *
 from utils.map import *
 from utils.git_utils import *
 from utils.startup_banner import display_startup_banner, display_shutdown_banner, get_ascii_banner
+from utils.knowledge_base import create_knowledge_base
+from utils.crawler_utils import crawl_and_create_kb
 import html as _html
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -20,6 +22,8 @@ import os
 import atexit
 from model_config import *
 import time
+from typing import List, Optional, Union
+from utils.knowledge_base import create_knowledge_base
 
 # Application state for startup/reload notifications
 app_state = {"status": "starting", "message": "Initializing components..."}
@@ -33,8 +37,10 @@ def init_components():
 
     app_state['status'] = 'starting'
     app_state['message'] = 'Loading models and embeddings (this may take a minute)...'
+    print("=== CoexistAI Startup: Loading models and embeddings ===", flush=True)
     try:
         # Read config values
+        print("Reading configuration from model_config...", flush=True)
         llm_model_name = model_config.get("llm_model_name", llm_model_name if 'llm_model_name' in globals() else 'google/gemma-3-12b')
         llm_type = model_config.get("llm_type", llm_type if 'llm_type' in globals() else 'local')
         llm_kwargs = model_config.get("llm_kwargs", llm_kwargs if 'llm_kwargs' in globals() else {'temperature':0.1,'api_key': llm_api_key})
@@ -42,8 +48,10 @@ def init_components():
         embedding_model_name = model_config.get("embedding_model_name", embedding_model_name if 'embedding_model_name' in globals() else 'models/embedding-001')
         embed_mode = model_config.get("embed_mode", embed_mode if 'embed_mode' in globals() else 'google')
         cross_encoder_name = model_config.get("cross_encoder_name", cross_encoder_name if 'cross_encoder_name' in globals() else 'BAAI/bge-reranker-base')
+        print(f"Config loaded: llm_type={llm_type}, llm_model={llm_model_name}, embed_mode={embed_mode}", flush=True)
 
         # instantiate generative LLM
+        print(f"Initializing LLM: {llm_model_name} ({llm_type})...", flush=True)
         llm = get_generative_model(
             model_name=llm_model_name,
             type=llm_type,
@@ -51,36 +59,48 @@ def init_components():
             _tools=None,
             kwargs=llm_kwargs
         )
+        print("LLM initialized successfully", flush=True)
 
         # load embeddings and cross-encoder
+        print(f"Loading embeddings: {embedding_model_name} (mode={embed_mode})...", flush=True)
         hf_embeddings, cross_encoder = load_model(embedding_model_name,
                                                   _embed_mode=embed_mode,
                                                   cross_encoder_name=cross_encoder_name,
                                                   kwargs=model_config.get('embed_kwargs', {}))
+        print("Embeddings and cross-encoder loaded successfully", flush=True)
 
-        text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
+        print("Initializing text splitter...", flush=True)
+        text_splitter = TokenTextSplitter(chunk_size=128, chunk_overlap=32)
 
         # recreate searxng searcher
+        print(f"Initializing SearchWeb with {HOST_SEARXNG}:{PORT_NUM_SEARXNG}...", flush=True)
         searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
 
+        print("Getting local date and time...", flush=True)
         date, day = get_local_data()
 
         app_state['status'] = 'ready'
         app_state['message'] = 'Ready'
+        print("=== CoexistAI Startup Complete: All components ready ===", flush=True)
     except Exception as e:
         app_state['status'] = 'error'
         app_state['message'] = f'Initialization failed: {e}'
         # keep exception visible in logs
+        print(f"=== CoexistAI Startup FAILED: {e} ===", flush=True)
         logger.exception('Failed to initialize components')
         raise
 
 
 # Initialize components once at import/startup
-try:
-    init_components()
-except Exception:
-    # already logged; keep going so admin endpoints can be used to diagnose/fix
-    pass
+# (This is now done in the lifespan startup handler)
+# try:
+#     init_components()
+# except Exception as e:
+#     # already logged; keep going so admin endpoints can be used to diagnose/fix
+#     logger.error(f'Failed to initialize at startup: {e}')
+#     # Update status to show startup failed but app is running for diagnostics
+#     app_state['status'] = 'error'
+#     app_state['message'] = f'Startup failed: {e}'
 
 # Use config values for model and embedding paths
 llm_model_name = model_config.get("llm_model_name", 'google/gemma-3-12b')
@@ -135,7 +155,34 @@ text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=128)
 
 searcher = SearchWeb(PORT_NUM_SEARXNG, HOST_SEARXNG)
 date, day = get_local_data()
-app = FastAPI(title='coexistai')
+
+# Lifespan context manager for startup/shutdown
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app_instance):
+    # Startup
+    print("\n" + "="*80, flush=True)
+    print("FastAPI app starting up...", flush=True)
+    logger.info("FastAPI app starting up...")
+    app_state['status'] = 'starting'
+    app_state['message'] = 'Initializing components...'
+    try:
+        init_components()
+        print("="*80 + "\n", flush=True)
+    except Exception as e:
+        print(f"STARTUP ERROR: {e}", flush=True)
+        print("="*80 + "\n", flush=True)
+        logger.error(f"Failed to initialize components during startup: {e}", exc_info=True)
+        app_state['status'] = 'error'
+        app_state['message'] = f'Startup failed: {e}'
+    yield
+    # Shutdown
+    logger.info("FastAPI app shutting down...")
+    app_state['status'] = 'shutting_down'
+    app_state['message'] = 'App shutting down'
+
+app = FastAPI(title='coexistai', lifespan=lifespan)
 
 # Mount static files
 app.mount("/artifacts", StaticFiles(directory="artifacts"), name="artifacts")
@@ -254,8 +301,7 @@ async def status():
 @app.get('/admin/config')
 async def admin_get_config():
     """Return the effective model_config plus helper globals for the admin UI."""
-    # safe copy of model_config
-    cfg = dict(model_config)
+    # safe copy of model
     # include openai_compatible and host/port defaults
     def _mask(s):
         try:
@@ -268,6 +314,7 @@ async def admin_get_config():
         except Exception:
             return ''
 
+    cfg = dict(model_config)
     cfg['_meta'] = {
         'openai_compatible': openai_compatible,
         'HOST_APP': globals().get('HOST_APP'),
@@ -305,6 +352,8 @@ class WebSearchRequest(BaseModel):
     local_mode: bool = False
     split: bool = True
     document_paths: list[str] = []  # List of paths for local documents
+    vectordb: str = ""  # Optional vector database name to use instead of search
+    quick_answer: bool = False  # Whether to force quick answer mode (disables summary mode)
 
 class YouTubeSearchRequest(BaseModel):
     query: str
@@ -366,6 +415,19 @@ class BasicTTSRequest(BaseModel):
     voice: str = "am_santa"
     lang: str = "en-us"
     filename: str = ""
+
+class KnowledgeBaseRequest(BaseModel):
+    document_paths: list[str]  # List of paths to create knowledge base from
+
+class CrawlerRequest(BaseModel):
+    url_or_urls: Union[str, List[str]]  # Single URL to crawl or list of URLs to scrape
+    keywords: Optional[List[str]] = [""]  # Optional keywords to filter content
+    depth: Optional[int] = None  # Crawl depth for crawling (None for full website crawl)
+    crawl: bool = True  # Whether to crawl (True) or process URLs directly (False)
+    min_delay: float = 1.0  # Minimum delay between requests in seconds
+    max_delay: float = 2.0  # Maximum delay between requests in seconds
+    max_pages: int = 10000  # Maximum number of pages to collect during crawling
+    url_keyword: Optional[str] = ""  # Optional keyword to filter URLs by presence in the URL string
 
 @app.post('/clickable-elements', operation_id="get_website_structure")
 async def get_website_structure(request: ClickableElementRequest):
@@ -454,6 +516,8 @@ async def websearch(request: WebSearchRequest):
         document_paths (list of str, optional): List of paths for local documents/folders. Defaults to empty list. for an example [path1,path2,path3]. if different tasks are related to different documents
         local_mode (bool, optional): Whether to process local documents. Defaults to False.
         split (bool, optional): Whether to split documents into chunks. Defaults to True.
+        vectordb (str, optional): Name of an existing vector database to query instead of performing search. Defaults to None.
+        quick_answer (bool, optional): Whether to force quick answer mode (disables summary mode). Defaults to False.
 
     Returns:
         str: Generated response to query based on the retrieved and reranked search results and sources
@@ -474,11 +538,68 @@ async def websearch(request: WebSearchRequest):
             num_results=min(2,request.num_results),
             document_paths=request.document_paths,
             local_mode=request.local_mode,
-            split=request.split
+            split=request.split,
+            vectordb=request.vectordb,
+            quick_answer=request.quick_answer
         )
         return "result:" + result[0] + '\n\nsources:' + result[1]
     except:
         return "No Websites found, Try rephrasing query"
+
+@app.post('/create-knowledge-base', operation_id="get_knowledge_base")
+async def create_kb(request: KnowledgeBaseRequest):
+    """
+    Creates a knowledge base from the provided document paths.
+    Processes all files in the paths, embeds them, and saves to a vector database.
+
+    Args:
+        document_paths (list of str): List of paths to folders or files to include in the knowledge base.
+
+    Returns:
+        str: The name of the created vector database collection.
+    """
+    try:
+        collection_name = await create_knowledge_base(
+            document_paths=request.document_paths,
+            hf_embeddings=hf_embeddings
+        )
+        return f"Knowledge base created successfully. Collection name: {collection_name}"
+    except Exception as e:
+        return f"Error creating knowledge base: {str(e)}"
+
+@app.post('/crawl-and-create-knowledge-base', operation_id="get_crawled_knowledge_base")
+async def crawl_kb(request: CrawlerRequest):
+    """
+    Crawls a website or processes a list of URLs and creates a knowledge base from the content.
+    
+    Args:
+        url_or_urls: Single URL to crawl or list of URLs to scrape directly
+        keywords: Optional list of keywords to filter content by
+        depth: Maximum crawl depth for crawling (None for full website crawl)
+        crawl: Whether to crawl (True) or process URLs directly (False)
+        min_delay: Minimum delay between requests in seconds (default: 1.0)
+        max_delay: Maximum delay between requests in seconds (default: 3.0)
+        max_pages: Maximum number of pages to collect during crawling (default: 100)
+        url_keyword: Optional keyword to filter URLs by presence in the URL string
+        
+    Returns:
+        str: Message with the collection name and list of scraped URLs.
+    """
+    try:
+        collection_name, scraped_urls = await crawl_and_create_kb(
+            url_or_urls=request.url_or_urls,
+            keywords=request.keywords,
+            depth=request.depth,
+            crawl=request.crawl,
+            min_delay=request.min_delay,
+            max_delay=request.max_delay,
+            max_pages=request.max_pages,
+            url_keyword=request.url_keyword,
+            hf_embeddings=hf_embeddings
+        )
+        return f"Crawled knowledge base created successfully. Collection name: {collection_name}. Scraped URLs: {scraped_urls}"
+    except Exception as e:
+        return f"Error creating crawled knowledge base: {str(e)}"
 
 @app.post('/web-summarize', operation_id="get_web_summarize")
 async def websummarize(request: WebSummarizeRequest):
