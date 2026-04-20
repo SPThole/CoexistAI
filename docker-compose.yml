@@ -17,6 +17,9 @@ services:
       # Ensure app binds to all interfaces inside the container (host access via localhost:8000)
       - HOST_APP=0.0.0.0
       - PORT_NUM_APP=8000
+      # Search provider selection: 'searxng' (default) or 'tavily'
+      - SEARCH_PROVIDER=${SEARCH_PROVIDER:-searxng}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
     depends_on:
       - searxng
 

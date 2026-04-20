@@ -63,51 +63,70 @@ UNREACHABLE_DOMAINS_BLACKLIST = set()
 
 class SearchWeb:
     """
-    A class for performing web searches using Searx and scraping content from web pages.
+    A class for performing web searches using Searx or Tavily and scraping content from web pages.
 
     Attributes:
         port (int): The port number for the Searx search wrapper.
         searcher (SearxSearchWrapper): An instance of SearxSearchWrapper for querying search engines.
+        search_provider (str): The active search provider ('searxng' or 'tavily').
     """
 
     def __init__(self, port, host="localhost", type='http'):
         """
         Initializes the SearchWeb class with the given Searx server port.
+        When SEARCH_PROVIDER is set to 'tavily', a TavilyClient is used instead.
 
         Args:
             port (int): The port number for Searx search service.
             host (str): The host address for Searx search service.
             type (str): The protocol type ('http' or 'https'). Defaults to 'http'.
         """
-        # Build explicit base URL and pass to SearxSearchWrapper. Add debug logging
-        # so we can trace which host/port the application is actually using.
-        base_url = f"{type}://{host}:{port}"
-        self.searcher = SearxSearchWrapper(searx_host=base_url)
-        self.base_url = base_url
-        try:
-            logger.info(f"SearchWeb initialized with searx base_url={self.base_url}")
-            # Some wrappers may expose their configured host attribute; ensure it's set for visibility
-            if not hasattr(self.searcher, 'searx_host'):
-                try:
-                    setattr(self.searcher, 'searx_host', self.base_url)
-                except Exception:
-                    pass
-        except Exception:
-            # logging should not crash initialization
-            pass
+        from model_config import SEARCH_PROVIDER, TAVILY_API_KEY
+
+        self.search_provider = SEARCH_PROVIDER.lower()
+
+        if self.search_provider == 'tavily':
+            from tavily import TavilyClient
+            self.tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+            self.searcher = None
+            self.base_url = None
+            logger.info("SearchWeb initialized with Tavily provider")
+        else:
+            # Build explicit base URL and pass to SearxSearchWrapper. Add debug logging
+            # so we can trace which host/port the application is actually using.
+            base_url = f"{type}://{host}:{port}"
+            self.searcher = SearxSearchWrapper(searx_host=base_url)
+            self.base_url = base_url
+            self.tavily_client = None
+            try:
+                logger.info(f"SearchWeb initialized with searx base_url={self.base_url}")
+                # Some wrappers may expose their configured host attribute; ensure it's set for visibility
+                if not hasattr(self.searcher, 'searx_host'):
+                    try:
+                        setattr(self.searcher, 'searx_host', self.base_url)
+                    except Exception:
+                        pass
+            except Exception:
+                # logging should not crash initialization
+                pass
 
     def query_search(self, query, engines=['google','brave','duckduckgo','startpage','yahoo'], num_results=3):
         """
-        Performs a search using the Searx engine and retrieves search results.
+        Performs a search using the configured provider and retrieves search results.
 
         Args:
             query (str): The search query.
-            engines (list, optional): The search engines to use. Defaults to ['google'].
-            num_results (int, optional): The number of search results to retrieve. Defaults to 5.
+            engines (list, optional): The search engines to use (SearXNG only). Defaults to ['google'].
+            num_results (int, optional): The number of search results to retrieve. Defaults to 3.
 
         Returns:
-            list: The search results from Searx.
+            list: The search results.
         """
+        if self.search_provider == 'tavily':
+            return self._tavily_search(query, num_results=num_results)
+        return self._searxng_search(query, engines=engines, num_results=num_results)
+
+    def _searxng_search(self, query, engines, num_results):
         try:
             search_results = self.searcher.results(
                 query,
@@ -118,6 +137,27 @@ class SearchWeb:
             return search_results
         except Exception as e:
             logger.error(f"Error during search for query '{query}': {e}")
+            return []
+
+    def _tavily_search(self, query, num_results):
+        try:
+            response = self.tavily_client.search(
+                query=query,
+                max_results=num_results,
+                search_depth="basic",
+            )
+            # Normalize Tavily results to match SearXNG result format (dict with 'link', 'title', 'snippet')
+            results = []
+            for item in response.get("results", []):
+                results.append({
+                    "link": item.get("url", ""),
+                    "title": item.get("title", ""),
+                    "snippet": item.get("content", ""),
+                })
+            logger.info(f"Tavily search results for query '{query}': {results}")
+            return results
+        except Exception as e:
+            logger.error(f"Error during Tavily search for query '{query}': {e}")
             return []
 
     def scrape_text(self, url):
