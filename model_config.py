@@ -35,6 +35,10 @@ PORT_NUM_APP = int(os.environ.get('PORT_NUM_APP', DEFAULT_PORT_NUM_APP))
 HOST_APP = os.environ.get('HOST_APP', DEFAULT_HOST_APP)
 HOST_SEARXNG = os.environ.get('HOST_SEARXNG', DEFAULT_HOST_SEARXNG)
 
+# Search provider: 'searxng' (default) or 'tavily'
+SEARCH_PROVIDER = os.environ.get('SEARCH_PROVIDER', 'searxng')
+TAVILY_API_KEY = os.environ.get('TAVILY_API_KEY', '')
+
 ###############
 
 # API keys: prefer provider-specific vars, fall back to the old GOOGLE_API_KEY for compatibility
