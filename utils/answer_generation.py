@@ -85,8 +85,7 @@ async def query_agent(query, llm, date, day):
         try:
             prompt = prompts['query_agent_basic'].format(date=date, day=day, query=query)
             response = await llm.ainvoke(prompt)
-            response = response.content
-            response = extract_subqueries(response.text)
+            response = extract_subqueries(response.content)
             return response, False,False,False
         except Exception as ex:
             logger.error(f"Both structured and prompt-based extraction failed: {ex}")
